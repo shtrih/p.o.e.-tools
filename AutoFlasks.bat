@@ -1,0 +1,2 @@
+AutoFlasks.exe|rem
+pause
