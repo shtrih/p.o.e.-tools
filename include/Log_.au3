@@ -2,8 +2,8 @@
 
 #include <Date.au3>
 
-Global Const $LOG_LEVEL_INFO = 0
-Global Const $LOG_LEVEL_DEBUG = 1
+Global Const $LOG_LEVEL_INFO = 'info'
+Global Const $LOG_LEVEL_DEBUG = 'debug'
 
 If Not IsDeclared('DEBUG') Then
    Global Const $DEBUG = $CmdLine[0] ? $CmdLine[1] = 'debug' : False
@@ -11,10 +11,10 @@ EndIf
 
 Func Log_($data, $logLevel = $LOG_LEVEL_INFO)
    If $logLevel = $LOG_LEVEL_DEBUG And Not $DEBUG Then
-	  Return
+      Return
    EndIf
 
-   $data = _Now() & ' - ' & $data
+   $data = _Now() & ' - ' & '[' & $logLevel & '] ' & $data
 
 ;~    $FileName = @ScriptDir & '\' & @ScriptName & '.log'
 ;~    $hFile = FileOpen($FileName, 1)

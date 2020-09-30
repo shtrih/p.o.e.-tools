@@ -1,0 +1,2 @@
+AutoProphecies.exe debug
+pause

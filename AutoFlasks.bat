@@ -1,2 +1,2 @@
-AutoFlasks.exe|rem
+AutoFlasks.exe debug
 pause
