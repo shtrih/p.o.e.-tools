@@ -33,15 +33,19 @@ Global Const $eg_sWindowTitle = 'Path of Exile'
 ;Global Const $eg_sWindowTitle = 'XnView - [Awakened_PoE_Trade_2020-09-30_11-28-42.png]'
 Global $g_hWnd = 0 
 
+Global $g_oneSecTimer = null
+
 Main()
 
 Func Main()
-   Const $CHECK_PERIOD = 250
+   Const $CHECK_PERIOD = 10
 
    Log_(@ScriptName & ' started!')
 
    $flaskCooldown = 0
    $isStrongFlaskCooldown = False
+   $hTimer = null
+
    While True
       If IsHwnd($g_hWnd) Then
          $hwnd = WinWaitActive($g_hWnd, '', 10)
@@ -70,33 +74,50 @@ Func Main()
          Global $windowOffsetTop = $pos[1]
          Global $windowWidth = $pos[2]
          Global $windowHeight = $pos[3]
+
+         Log_($windowWidth & 'x' & $windowHeight)
       EndIf
 
-      If ($flaskCooldown >= 0) Then
-         $flaskCooldown -= $CHECK_PERIOD
-      Else
-         $isStrongFlaskCooldown = False
+      If $hTimer <> null Then
+         $fTimeDiff = TimerDiff($hTimer)
+
+         If $isStrongFlaskCooldown Then
+            Log_('Cooldown: ' & $g_iBigCooldown - $fTimeDiff)
+
+            If $fTimeDiff > $g_iBigCooldown Then
+               $hTimer = null
+               $isStrongFlaskCooldown = False
+            EndIf
+         ElseIf $fTimeDiff > $g_iSmallCooldown Then
+            $hTimer = null
+         Else
+            Log_('Cooldown: ' & $g_iSmallCooldown - $fTimeDiff)
+         EndIf
       EndIf
+
+      $bSecPassed = oneSecPassed()
 
       If Not isVisibleHP() Then
+         If $bSecPassed Then Log_('HP is not visible', $LOG_LEVEL_DEBUG)
          Sleep($CHECK_PERIOD)
          ContinueLoop
       EndIf
+
+      If $bSecPassed Then Log_('HP visible', $LOG_LEVEL_DEBUG)
 
       If (Not $isStrongFlaskCooldown) Then
          $hpChecksum = getHPChecksum($g_iBigPercent, $windowHeight)
          If $g_iBigHash = 0 Then
             Log_('Writing new BigFlask hash')
             $g_iBigHash = $hpChecksum
-            configWriteHash($eg_sConfigFilePath, 'BigFlask', $g_iBigHash)
+            $iResult = configWriteHash($eg_sConfigFilePath, 'BigFlask', $g_iBigHash)
+            If $iResult = 0 Then
+               Log_('Fail!')
+            EndIf
          ElseIf ($hpChecksum <> $g_iBigHash) Then
-            ;If ($flaskCooldown <= 0) Then
-               DrinkFlask($g_sBigHotkey)
-               $flaskCooldown = $g_iBigCooldown
-               $isStrongFlaskCooldown = True
-            ;Else
-            ;   Log_(StringFormat('Мало хп (<%d%%), но фласка в кд (%s)', 65, $flaskCooldown))
-            ;EndIf
+            DrinkFlask($g_sBigHotkey)
+            $isStrongFlaskCooldown = True
+            $hTimer = TimerInit()
          EndIf
       EndIf
 
@@ -105,11 +126,14 @@ Func Main()
          If $g_iSmallHash = 0 Then
             Log_('Writing new SmallFlask hash')
             $g_iSmallHash = $hpChecksum
-            configWriteHash($eg_sConfigFilePath, 'SmallFlask', $g_iSmallHash)
+            $iResult = configWriteHash($eg_sConfigFilePath, 'SmallFlask', $g_iSmallHash)
+            If $iResult = 0 Then
+               Log_('Fail!')
+            EndIf
          ElseIf ($hpChecksum <> $g_iSmallHash) Then
-            If ($flaskCooldown <= 0) Then
+            If $hTimer = null Then
                DrinkFlask($g_sSmallHotkey)
-               $flaskCooldown = $g_iSmallCooldown
+               $hTimer = TimerInit()
             Else
                Log_(StringFormat('Мало хп (<%d%%), но фласка в кд (%s)', $g_iSmallPercent, $flaskCooldown))
             EndIf
@@ -197,6 +221,15 @@ Func configRead($sFilePath)
    $g_iBigCooldown = IniRead($sFilePath, 'BigFlask', 'cooldown_msec', $eg_iBigCooldown)
    $g_iBigPercent = IniRead($sFilePath, 'BigFlask', 'trigger_percent', $eg_iBigPercent)
    $g_iBigHash = IniRead($sFilePath, 'BigFlask', 'trigger_hash', $eg_iBigHash)
+EndFunc
+
+Func oneSecPassed()
+   If TimerDiff($g_oneSecTimer) > 999 Then
+      $g_oneSecTimer = TimerInit()
+      Return True
+   EndIf
+
+   Return False
 EndFunc
 
 Func Terminate()

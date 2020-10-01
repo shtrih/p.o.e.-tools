@@ -7,6 +7,7 @@
 #ce ----------------------------------------------------------------------------
 #pragma compile(Console, true)
 #pragma compile(x64, true)
+#pragma compile(Icon, "ProphecyOrbRed.ico")
 
 #include <AutoItConstants.au3>
 #include <MsgBoxConstants.au3>
