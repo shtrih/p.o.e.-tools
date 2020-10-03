@@ -30,7 +30,7 @@ Global Const $eg_sConfigFilePath = @ScriptFullPath & '.ini'
 configRead($eg_sConfigFilePath)
 
 Global Const $eg_sWindowTitle = 'Path of Exile'
-;Global Const $eg_sWindowTitle = 'XnView - [Awakened_PoE_Trade_2020-09-30_11-28-42.png]'
+;Global Const $eg_sWindowTitle = 'XnView'
 Global $g_hWnd = 0 
 
 Global $g_oneSecTimer = null
@@ -42,16 +42,16 @@ Func Main()
 
    Log_(@ScriptName & ' started!')
 
-   $flaskCooldown = 0
    $isStrongFlaskCooldown = False
    $hTimer = null
 
    While True
+      Sleep($CHECK_PERIOD)
+
       If IsHwnd($g_hWnd) Then
          $hwnd = WinWaitActive($g_hWnd, '', 10)
          If $hwnd = 0 Then ; timeout
             Log_('WaitActive timeout. Continue...', $LOG_LEVEL_DEBUG)
-            Sleep($CHECK_PERIOD)
             ContinueLoop
          EndIf
       Else
@@ -99,7 +99,6 @@ Func Main()
 
       If Not isVisibleHP() Then
          If $bSecPassed Then Log_('HP is not visible', $LOG_LEVEL_DEBUG)
-         Sleep($CHECK_PERIOD)
          ContinueLoop
       EndIf
 
@@ -135,12 +134,10 @@ Func Main()
                DrinkFlask($g_sSmallHotkey)
                $hTimer = TimerInit()
             Else
-               Log_(StringFormat('Мало хп (<%d%%), но фласка в кд (%s)', $g_iSmallPercent, $flaskCooldown))
+               Log_(StringFormat('Мало хп (<%d%%), но фласка в кд (%s)', $g_iSmallPercent, $g_iSmallCooldown - TimerDiff($hTimer)))
             EndIf
          EndIf
       EndIf
-
-      Sleep($CHECK_PERIOD)
    WEnd
 EndFunc
 

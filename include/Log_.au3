@@ -25,3 +25,14 @@ Func Log_($data, $logLevel = $LOG_LEVEL_INFO)
 
    ConsoleWrite($data & @CRLF)
 EndFunc
+
+Func Logv($p1, $p2 = '', $p3 = '', $p4 = '', $p5 = '', $p6 = '', $p7 = '', $p8 = '', $p9 = '', $p10 = '')
+   $sValue = ''
+   For $i = 1 To @NumParams
+      $v = String(Eval("p" & $i))
+      If $v And $i <> 1 Then $sValue &= ", "
+      $sValue &= $v
+   Next
+
+   Log_($sValue)
+EndFunc

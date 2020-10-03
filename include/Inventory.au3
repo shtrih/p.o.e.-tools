@@ -8,23 +8,27 @@
 ;$hWnd = WinGetHandle("XnView")
 ;WinWaitActive($hWnd)
 ;Beep(250, 250)
-;InitStashSettings()
-;$aStash = StashScan()
+;InitInventorySettings()
+;$aStash = InventoryScan()
 ;_ArrayDisplay($aStash)
-;Log_(IsStorageVisible())
+;Log_(IsInventoryVisible())
 ;Beep(250, 250)
 
-Func InitStashSettings()
+Func InitInventorySettings()
    Const $iBorderWidth   = 2
    Const $iCellWidth     = 50.5 ; Because cell size is sometimes 50 or 51
-   Const $iCellStartPosX = 15
-   Const $iCellStartPosY = 160
+   Const $iCellStartPosX = 1269
+   Const $iCellStartPosY = 585
    Const $iHorCount      = 12
-   Const $iVertCount     = 12
+   Const $iVertCount     = 5
 
    InitStorageSettings($iBorderWidth, $iCellWidth, $iCellStartPosX, $iCellStartPosY, $iHorCount, $iVertCount)
 EndFunc
 
-Func StashScan()
+Func InventoryScan()
    Return StorageScan(0x050505, 5)
+EndFunc
+
+Func IsInventoryVisible()
+   Return IsStorageVisible()
 EndFunc

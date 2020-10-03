@@ -253,10 +253,11 @@ Func InitInventory()
 EndFunc
 
 Func SetStateStop($reason = '')
+   $reason = IsDeclared('reason') ? $reason : 'User command' ; Because HotKeySet ignore default values of arguments too!
+
    If $reason Then Log_($reason)
    Log_('Stopping the script...')
 
    Start(False)
    ; ContinueLoop ; "ExitLoop/ContinueLoop" statements only valid from inside a For/Do/While loop.
 EndFunc
-;https://poe.ninja/api/data/itemoverview?league=Heist&type=Prophecy&language=en

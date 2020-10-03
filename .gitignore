@@ -1,3 +1,5 @@
 .idea
 *.exe
 *.ini
+*.zip
+*.csv
