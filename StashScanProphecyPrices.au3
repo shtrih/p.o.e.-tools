@@ -8,6 +8,7 @@
 #pragma compile(Console, true)
 #pragma compile(x64, true)
 #pragma compile(Icon, "ProphecyOrbRed.ico")
+#pragma compile(Out, "build/StashScanProphPrices.exe")
 
 #include <AutoItConstants.au3>
 #include <MsgBoxConstants.au3>
@@ -29,8 +30,8 @@ Global $isStarted = False
 Main()
 
 Func Main()
-   $hWnd = WinGetHandle("Path of Exile")
-   ;$hWnd = WinGetHandle("XnView")
+   ;$hWnd = WinGetHandle("Path of Exile")
+   $hWnd = WinGetHandle("XnView")
 
    If @error Then
      MsgBox($MB_SYSTEMMODAL, "", "An error occurred when trying to retrieve the window handle PoE")
@@ -55,7 +56,7 @@ Func Main()
             EndIf
          EndIf
 
-         $aStash = StorageScanItemsInfo(0x050505, 5)
+         $aStash = StorageScanItemsInfo($COLOR_EMPTY, $COLOR_EMPTY_SHADE)
          Beep(100, 100)
 
          ;_ArrayDisplay($aStash)
@@ -144,7 +145,7 @@ Func Stop($reason = '')
 
    If $reason Then Log_($reason)
    Log_('Stopping the script...')
-
+   Exit
    Start(False)
    ; ContinueLoop ; "ExitLoop/ContinueLoop" statements only valid from inside a For/Do/While loop.
 EndFunc

@@ -3,3 +3,5 @@
 *.ini
 *.zip
 *.csv
+build/
+trash/

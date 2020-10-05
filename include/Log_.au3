@@ -1,6 +1,7 @@
 #include-once
 
 #include <Date.au3>
+#include "_PrintArrayConsole.au3"
 
 Global Const $LOG_LEVEL_INFO = 'info'
 Global Const $LOG_LEVEL_DEBUG = 'debug'
@@ -14,23 +15,22 @@ Func Log_($data, $logLevel = $LOG_LEVEL_INFO)
       Return
    EndIf
 
-   $data = _Now() & ' - ' & '[' & $logLevel & '] ' & $data
+   ConsoleWrite(_Now() & ' - ' & '[' & $logLevel & '] ' & $data & @CRLF)
 
-;~    $FileName = @ScriptDir & '\' & @ScriptName & '.log'
-;~    $hFile = FileOpen($FileName, 1)
-;~    If $hFile <> -1 Then
-;~ 	 FileWriteLine($hFile, $data)
-;~ 	 FileClose($hFile)
-;~    EndIf
-
-   ConsoleWrite($data & @CRLF)
+   If IsArray($data) Then
+      _PrintArrayConsole($data)
+      If @error Then
+         ConsoleWrite('Array[' & UBound($data) & ']' & @CRLF)
+      EndIf
+   EndIf
 EndFunc
 
 Func Logv($p1, $p2 = '', $p3 = '', $p4 = '', $p5 = '', $p6 = '', $p7 = '', $p8 = '', $p9 = '', $p10 = '')
    $sValue = ''
    For $i = 1 To @NumParams
-      $v = String(Eval("p" & $i))
-      If $v And $i <> 1 Then $sValue &= ", "
+      $v = Eval("p" & $i)
+      If IsArray($v) Then $v = 'Array[' & UBound($v) & ']'
+      If Not ($v == '') And $i <> 1 Then $sValue &= ", "
       $sValue &= $v
    Next
 

@@ -1,6 +1,7 @@
 #include-once
 
 #include <AutoItConstants.au3>
+#include <Array.au3>
 #include "Log_.au3"
 
 Global $g_initStorage = False
@@ -10,6 +11,11 @@ Global $g_cellStartPosX
 Global $g_cellStartPosY
 Global $g_horCount
 Global $g_vertCount
+
+Global $COLOR_PROPHECY = 0x811469
+Global $COLOR_PROPHECY_SHADE = 4
+Global $COLOR_EMPTY = 0x050505
+Global $COLOR_EMPTY_SHADE = 5
 
 Func InitStorageSettings($borderWidth=2, $cellWidth=50, $cellStartPosX=1269, $cellStartPosY=585, $HorCellCount=12, $VertCellCount=5)
    $g_borderWidth   = $borderWidth
@@ -35,14 +41,14 @@ Func CellCenterPixel()
 EndFunc
 
 Func CellCheckColor($numX, $numY, $checkColor, $shadeVariation)
-   Const $DELTA_X = 3
-   Const $DELTA_Y = 1
+   Const $DELTA_X = 2 ; 2x2 turns to 3x3 in PixelSearch()
+   Const $DELTA_Y = 2
    $cellPixelPositions = CellNum2PixelPos($numX, $numY)
    Const $POSITION_X = Ceiling($cellPixelPositions[0] + $g_cellWidth/2 - $DELTA_X/2)
    Const $POSITION_Y = Ceiling($cellPixelPositions[1] + $g_cellWidth/2 - $DELTA_Y/2)
 
    Log_(StringFormat('CellCheckColor(%s, %s)(%s, %s, %s, %s)', $numX, $numY, $POSITION_X, $POSITION_Y, $POSITION_X + $DELTA_X, $POSITION_Y + $DELTA_Y), $LOG_LEVEL_DEBUG)
-
+   ;If $DEBUG Then Log_(SquareGetColors($POSITION_X, $POSITION_Y, $POSITION_X + $DELTA_X, $POSITION_Y + $DELTA_Y), $LOG_LEVEL_DEBUG)
    ;MouseMove($POSITION_X, $POSITION_Y, 1)
 
    PixelSearch($POSITION_X, $POSITION_Y, $POSITION_X + $DELTA_X, $POSITION_Y + $DELTA_Y, $checkColor, $shadeVariation)
@@ -50,17 +56,42 @@ Func CellCheckColor($numX, $numY, $checkColor, $shadeVariation)
    Return Not @error
 EndFunc
 
+Func CellCheckIsEmpty($numX, $numY)
+   Return CellCheckColor($numX, $numY, $COLOR_EMPTY, $COLOR_EMPTY_SHADE)
+EndFunc
+
+; x <= x1, y <= y1
+Func SquareGetColors($x, $y, $x1, $y1)
+   $iCount = ($x1 - $x + 1) * ($y1 - $y + 1)
+   Local $result[$iCount]
+
+   $k = 0
+   For $i = $y To $y1
+      For $j = $x To $x1
+         $result[$k] = '#' & Hex(PixelGetColor($j, $i), 6)
+
+         $k += 1
+      Next
+   Next
+
+   Return $result
+EndFunc
+
 Func StorageScan($checkColor, $shadeVariation)
-   Local $result[$g_horCount * $g_vertCount][2]
+   Local $result[0][2]
 
-   Local $counter = 0
+   $isInverted = False
+   Const $iVertMax = $g_vertCount - 1
+
    For $x = 0 to ($g_horCount - 1)
-      For $y = 0 to ($g_vertCount - 1)
-         If CellCheckColor($x, $y, $checkColor, $shadeVariation) Then
-            $result[$counter][0] = $x
-            $result[$counter][1] = $y
+      $isInverted = Mod($x, 2) = 0 ? False : True
 
-            $counter += 1
+      For $y = 0 to $iVertMax
+         $iSnakeY = $isInverted ? $iVertMax - $y : $y
+
+         If CellCheckColor($x, $iSnakeY, $checkColor, $shadeVariation) Then
+            Local $resultSub[1][2] = [[$x, $iSnakeY]]
+            _ArrayAdd($result, $resultSub)
          EndIf
       Next
    Next
@@ -68,20 +99,30 @@ Func StorageScan($checkColor, $shadeVariation)
    Return $result
 EndFunc
 
-Func StorageFindEmptySpace($inventory)
+Func StorageFindEmptySpace(ByRef $inventory)
    Local $result[2]
 
    For $i = 0 To UBound($inventory) - 1
-      If IsNumber($inventory[$i][0]) Then
-         Local $pos[2] = [$inventory[$i][0], $inventory[$i][1]]
-         $result[0] = $i
-         $result[1] = $pos
+      Local $pos[2] = [$inventory[$i][0], $inventory[$i][1]]
+      $result[0] = $i
+      $result[1] = $pos
 
-         Return $result
-      EndIf
+      Return $result
    Next
 
    Return False
+EndFunc
+
+Func StorageClickItem($numX, $numY)
+   $mousePos = CellNum2PixelPos($numX, $numY)
+   Const $offset = 8 ;
+   Const $x = Random($mousePos[0] + $offset, $mousePos[0] + $g_cellWidth - $offset, 1)
+   Const $y = Random($mousePos[1] + $offset, $mousePos[1] + $g_cellWidth - $offset, 1)
+   Const $speed = Random(10, 20, 1)
+
+   Log_(StringFormat('StorageClickItem(%s, %s)(%s, %s)', $numX, $numY, $x, $y), $LOG_LEVEL_DEBUG)
+
+   MouseClick($MOUSE_CLICK_LEFT, $x, $y, 1, $speed)
 EndFunc
 
 Func StoragePutItem(ByRef $inventory)
@@ -94,15 +135,9 @@ Func StoragePutItem(ByRef $inventory)
    $invKey = $cell[0]
    $cellPos = $cell[1]
 
-   $inventory[ $invKey ][0] = False
+   _ArrayDelete($inventory, $invKey)
 
-   $mousePos = CellNum2PixelPos($cellPos[0], $cellPos[1])
-   Const $x = Random($mousePos[0], $mousePos[0] + $g_cellWidth, 1)
-   Const $y = Random($mousePos[1], $mousePos[1] + $g_cellWidth, 1)
-   Const $speed = Random(10, 20, 1)
-
-   Log_(StringFormat('InventoryPutItem(%s, %s)(%s, %s)', $cellPos[0], $cellPos[1], $x, $y), $LOG_LEVEL_DEBUG)
-   MouseClick($MOUSE_CLICK_LEFT, $x, $y, 1, $speed)
+   StorageClickItem($cellPos[0], $cellPos[1])
 EndFunc
 
 Func IsStorageVisible()
@@ -144,23 +179,27 @@ Func GetItemInfo()
 EndFunc
 
 Func StorageScanItemsInfo($checkColor, $shadeVariation)
-   Local $result[$g_horCount * $g_vertCount][3]
+   Local $result[0][3]
 
-   Local $counter = 0
-   Local $isPrevWithItem = True
+   $isPrevWithItem = True
+   $isInverted = False
+   Const $iVertMax = $g_vertCount - 1
+   
    For $x = 0 to ($g_horCount - 1)
-      For $y = 0 to ($g_vertCount - 1)
-         If Not CellCheckColor($x, $y, $checkColor, $shadeVariation) Then
-            CellMove($x, $y)
-            $result[$counter][0] = $x
-            $result[$counter][1] = $y
-            $result[$counter][2] = GetItemInfo()
+      $isInverted = Mod($x, 2) = 0 ? False : True
 
-            $counter += 1
+      For $y = 0 to $iVertMax
+         $iSnakeY = $isInverted ? $iVertMax - $y : $y
+      
+         If Not CellCheckColor($x, $iSnakeY, $checkColor, $shadeVariation) Then
+            CellMove($x, $iSnakeY)
+            Local $resultSub[1][3] = [[$x, $iSnakeY, GetItemInfo()]]
+            _ArrayAdd($result, $resultSub)
+
             $isPrevWithItem = True
          Else
             If $isPrevWithItem Then
-               CellMove($x, $y)
+               CellMove($x, $iSnakeY)
                $isPrevWithItem = False
             EndIf
          EndIf

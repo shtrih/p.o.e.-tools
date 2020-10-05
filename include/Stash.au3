@@ -26,5 +26,5 @@ Func InitStashSettings()
 EndFunc
 
 Func StashScan()
-   Return StorageScan(0x050505, 5)
+   Return StorageScan($COLOR_EMPTY, $COLOR_EMPTY_SHADE)
 EndFunc

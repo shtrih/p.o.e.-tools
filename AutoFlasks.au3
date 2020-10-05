@@ -1,6 +1,7 @@
 #pragma compile(Console, True)
 #pragma compile(x64, true)
 #pragma compile(Icon, "flask.ico")
+#pragma compile(Out, "build/AutoFlasks.exe")
 
 #include <MsgBoxConstants.au3>
 #include <WinAPISysWin.au3>

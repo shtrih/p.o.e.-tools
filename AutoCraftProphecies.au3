@@ -8,11 +8,12 @@
 #pragma compile(Console, true)
 #pragma compile(x64, true)
 #pragma compile(Icon, "ProphecyOrbRed.ico")
+#pragma compile(Out, "build/AutoCraftProph.exe")
 
 #include <AutoItConstants.au3>
 #include <MsgBoxConstants.au3>
 #include <Date.au3>
-#include "include/Storage.au3"
+#include "include/Inventory.au3"
 #include "include/Log_.au3"
 
 HotKeySet("^k", "Start")
@@ -20,7 +21,7 @@ HotKeySet("^l", "Stop")
 
 Global $hWnd
 Global $isStarted = False
-Global $inventoryNeedRescan = False
+Global $aInventoryNeedRescan = False
 
 Global Const $PropheciesPositions = [ [320, 256], [168,  315], [458, 315], [132, 480], [492, 480], [224, 640], [408, 640] ]
 Global Const $ProphecySeekButtonPositions = [ [298, 770], [365, 787] ]
@@ -50,7 +51,7 @@ Main()
 
 Func Main()
    $hWnd = WinGetHandle("Path of Exile")
-   ;$hWnd = WinGetHandle("XnView - [PathOfExile_x64Steam_2020-09-28_17-52-04-5.png]")
+   ;$hWnd = WinGetHandle("XnView")
 
    If @error Then
      MsgBox($MB_SYSTEMMODAL, "", "An error occurred when trying to retrieve the window handle PoE")
@@ -59,14 +60,14 @@ Func Main()
 
    Log_(@ScriptName & ' is ready. Open Navali Prophecies dialog and press Ctrl+K to start or Ctrl+L to pause!')
 
-   InitInventory()
-   Local $inventory = False
+   InitInventorySettings()
+   Local $aInventory = False
 
    While True
       WinWaitActive($hWnd)
 
-   ;   $inventory = InventoryScan()
-   ;   InventoryPutItem($inventory)
+   ;   $aInventory = InventoryScan()
+   ;   InventoryPutItem($aInventory)
    ;   If @error Then Log_('errror')
 
    ;   Beep(500, 500)
@@ -81,6 +82,22 @@ Func Main()
          Log_('Prophecies window is Open')
       Else
          SetStateStop('Prophecies window is Closed.')
+         ContinueLoop
+      EndIf
+
+      If CheckInventoryClosed() Then
+         Log_('Opening inventory...')
+         Send('{i}')
+      EndIf
+
+      If Not IsArray($aInventory) Or $aInventoryNeedRescan Then
+         $aInventoryNeedRescan = False
+         Log_('Scanning inventory...')
+         $aInventory = StorageScan($COLOR_EMPTY, $COLOR_EMPTY_SHADE)
+      EndIf
+
+      If Not UBound($aInventory) Then
+         SetStateStop('Inventory is full.')
          ContinueLoop
       EndIf
 
@@ -100,18 +117,7 @@ Func Main()
             ContinueLoop
          EndIf
 
-         If CheckInventoryClosed() Then
-            Log_('Opening inventory...')
-            Send('{I}')
-         EndIf
-
-         If Not IsArray($inventory) Or $inventoryNeedRescan Then
-            $inventoryNeedRescan = False
-            Log_('Scanning inventory...')
-            $inventory = StorageScan(0x050505, 5)
-         EndIf
-
-         StoragePutItem($inventory)
+         StoragePutItem($aInventory)
          If @error Then
             SetStateStop('Inventory is full.')
             ContinueLoop
@@ -136,7 +142,7 @@ EndFunc
 Func Start($state = True)
    $state = IsDeclared('state') ? $state : True ; Because HotKeySet ignore default values of arguments too!
 
-   $inventoryNeedRescan = True
+   $aInventoryNeedRescan = True
    $isStarted = $state
    Log_('Started: ' & $isStarted)
 
@@ -239,17 +245,6 @@ Func CheckInventoryClosed()
    Log_('CheckInventoryClosed: ' & $checksumActual, $LOG_LEVEL_DEBUG)
 
    Return $CHECKSUM <> $checksumActual
-EndFunc
-
-Func InitInventory()
-   Const $_BORDER_WIDTH = 3
-   Const $_CELL_WIDTH = 50
-   Const $_CELL_START_POS_X = 1269
-   Const $_CELL_START_POS_Y = 585
-   Const $_HOR_COUNT = 12
-   Const $_VERT_COUNT = 5
-
-   InitStorageSettings($_BORDER_WIDTH, $_CELL_WIDTH, $_CELL_START_POS_X, $_CELL_START_POS_Y, $_HOR_COUNT, $_VERT_COUNT)
 EndFunc
 
 Func SetStateStop($reason = '')
