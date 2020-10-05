@@ -104,7 +104,7 @@ Func StorageCtrlClickItem(ByRef $aInventory, ByRef $bIsStarted)
       EndIf
 
       StorageClickItem($aInventory[$i][0], $aInventory[$i][1])
-      Sleep(100)
+      Sleep(150)
 
       If Not CellCheckIsEmpty($aInventory[$i][0], $aInventory[$i][1]) Then
          Stop('Looks like stash is full')
