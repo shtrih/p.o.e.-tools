@@ -52,8 +52,9 @@ Func CellCheckColor($numX, $numY, $checkColor, $shadeVariation)
    ;MouseMove($POSITION_X, $POSITION_Y, 1)
 
    PixelSearch($POSITION_X, $POSITION_Y, $POSITION_X + $DELTA_X, $POSITION_Y + $DELTA_Y, $checkColor, $shadeVariation)
+   $result = Not @error
 
-   Return Not @error
+   Return $result
 EndFunc
 
 Func CellCheckIsEmpty($numX, $numY)
@@ -118,7 +119,7 @@ Func StorageClickItem($numX, $numY)
    Const $offset = 8 ;
    Const $x = Random($mousePos[0] + $offset, $mousePos[0] + $g_cellWidth - $offset, 1)
    Const $y = Random($mousePos[1] + $offset, $mousePos[1] + $g_cellWidth - $offset, 1)
-   Const $speed = Random(10, 20, 1)
+   Const $speed = Random(8, 12, 1)
 
    Log_(StringFormat('StorageClickItem(%s, %s)(%s, %s)', $numX, $numY, $x, $y), $LOG_LEVEL_DEBUG)
 
@@ -158,16 +159,19 @@ EndFunc
 
 Func CellMove($numX, $numY)
    $pos = CellNum2PixelPos($numX, $numY)
-   $mousePosX = Random($pos[0] + 5, $pos[0] + $g_cellWidth - 5, 1)
-   $mousePosY = Random($pos[1] + 5, $pos[1] + $g_cellWidth - 5, 1)
-   $mouseSpeed = Random(5, 10, 1)
+   Const $offset = Ceiling($g_cellWidth / 100 * 20)
+   $mousePosX = Random($pos[0] + $offset, $pos[0] + $g_cellWidth - $offset, 1)
+   $mousePosY = Random($pos[1] + $offset, $pos[1] + $g_cellWidth - $offset, 1)
+   $mouseSpeed = Random(4, 7, 1)
 
    MouseMove($mousePosX, $mousePosY, $mouseSpeed)
 EndFunc
 
-Func GetItemInfo()
-   Send('^c')
-   Sleep(100)
+Func GetItemInfo($bPushCtrlC = True)
+   If $bPushCtrlC Then
+      Send('^c')
+      Sleep(100)
+   EndIf
 
    $sItemInfo = ClipGet()
 ;Logv('Item: ', $numX, $numY, $sItemInfo)
@@ -178,33 +182,36 @@ Func GetItemInfo()
    Return $sItemInfo
 EndFunc
 
-Func StorageScanItemsInfo($checkColor, $shadeVariation)
+Func StorageScanItemsInfo($checkColor, $shadeVariation, ByRef $bContinue)
    Local $result[0][3]
 
-   $isPrevWithItem = True
    $isInverted = False
    Const $iVertMax = $g_vertCount - 1
-   
+
+   Send('{CTRLDOWN}')
+
    For $x = 0 to ($g_horCount - 1)
       $isInverted = Mod($x, 2) = 0 ? False : True
 
       For $y = 0 to $iVertMax
-         $iSnakeY = $isInverted ? $iVertMax - $y : $y
-      
-         If Not CellCheckColor($x, $iSnakeY, $checkColor, $shadeVariation) Then
-            CellMove($x, $iSnakeY)
-            Local $resultSub[1][3] = [[$x, $iSnakeY, GetItemInfo()]]
-            _ArrayAdd($result, $resultSub)
+         If Not $bContinue Then
+            ExitLoop 2
+         EndIf
 
-            $isPrevWithItem = True
-         Else
-            If $isPrevWithItem Then
-               CellMove($x, $iSnakeY)
-               $isPrevWithItem = False
-            EndIf
+         $iSnakeY = $isInverted ? $iVertMax - $y : $y
+         CellMove($x, $iSnakeY)
+
+         If Not CellCheckColor($x, $iSnakeY, $checkColor, $shadeVariation) Then
+            Send('{c}')
+            Sleep(100)
+
+            Local $resultSub[1][3] = [[$x, $iSnakeY, GetItemInfo(False)]]
+            _ArrayAdd($result, $resultSub)
          EndIf
       Next
    Next
+
+   Send('{CTRLUP}')
 
    Return $result
 EndFunc

@@ -21,8 +21,8 @@
 #include "include/Log_.au3"
 #include "include/NinjaAPIProphecies.au3"
 
-HotKeySet("^k", "Start")
-HotKeySet("^l", "Stop")
+HotKeySet("^i", "Start")
+HotKeySet("^o", "Stop")
 
 Global $hWnd
 Global $isStarted = False
@@ -30,8 +30,8 @@ Global $isStarted = False
 Main()
 
 Func Main()
-   ;$hWnd = WinGetHandle("Path of Exile")
-   $hWnd = WinGetHandle("XnView")
+   $hWnd = WinGetHandle("Path of Exile")
+   ;$hWnd = WinGetHandle("XnView")
 
    If @error Then
      MsgBox($MB_SYSTEMMODAL, "", "An error occurred when trying to retrieve the window handle PoE")
@@ -56,7 +56,7 @@ Func Main()
             EndIf
          EndIf
 
-         $aStash = StorageScanItemsInfo($COLOR_EMPTY, $COLOR_EMPTY_SHADE)
+         $aStash = StorageScanItemsInfo($COLOR_EMPTY, $COLOR_EMPTY_SHADE, $isStarted)
          Beep(100, 100)
 
          ;_ArrayDisplay($aStash)
@@ -91,7 +91,7 @@ Func Main()
                   $aResult[$i][3] = $aItemPrice[0] ; chaosValue
                   $aResult[$i][4] = $aItemPrice[1] ; exaltedValue
                Else
-                  Logv('Error getting price', VarGetType($aItemPrice), $aItemPrice)
+                  Logv('Error getting price', VarGetType($aItemPrice), $aItemPrice, $aResult[$i][0], $sHash)
                EndIf
             EndIf
          Next
@@ -104,7 +104,7 @@ Func Main()
          EndIf
 
          Stop()
-         ExitLoop
+         ;ExitLoop
       EndIf
    WEnd
 EndFunc
