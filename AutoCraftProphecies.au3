@@ -13,39 +13,73 @@
 #include <AutoItConstants.au3>
 #include <MsgBoxConstants.au3>
 #include <Date.au3>
+#include <Misc.au3>
+
 #include "include/Inventory.au3"
+#include "include/Stash.au3"
+#include "include/StashQuad.au3"
 #include "include/Log_.au3"
 
 HotKeySet("^k", "Start")
 HotKeySet("^l", "Stop")
 
 Global $hWnd
-Global $isStarted = False
-Global $aInventoryNeedRescan = False
+Global $g_isStarted = False
+Global $g_isRestarted = True
 
 Global Const $PropheciesPositions = [ [320, 256], [168,  315], [458, 315], [132, 480], [492, 480], [224, 640], [408, 640] ]
 Global Const $ProphecySeekButtonPositions = [ [298, 770], [365, 787] ]
 Global Const $ProphecySealButtonPositions = [ [298, 215], [365, 232] ]
 
-; Check Prophecy Window is open
-;  No:
-;   Stop Script
-; Check Prophecy Exists
-;  Yes:
-;   Click Seal Button
-;   Check "not enough coins" dialog
-;    Yes:
-;     Stop Script
-;    No:
-;     Confirm Prophecy Sealing
-;     Move to inventory step
-;  No:
-;   Click Seek Button
-;   Check "not enough coins" dialog
-;    Yes:
-;     Stop Script
-;    No:
-;     Move to "Check Prophecy Window is open" step
+#cs
+WaitForStart
+Only on Restart. Ask user to point Navali
+ No:
+   Stop Script
+ Yes:
+   Monitor LMB and save mouse cursor coordinates on click
+Only on Restart. Ask user to point Stash
+ No:
+   Stop Script
+ Yes:
+   Monitor LMB and save mouse cursor coordinates on click
+Check Prophecy Window is open
+ No:
+  Try click Navali position according user input
+Check Prophecy Window is open
+ No:
+  Stop Script
+Open Inventory if closed
+Scan Inventory (for empty space)
+If Inventory is full then
+ Scan Inventory (for prophecies)
+  No prophecies:
+   Stop Script (inventory full)
+ Try click Stash position according user input
+ Check Stash is open
+  No:
+   Stop Script
+ CtrlClick any prophecies to Stash
+ If Stash is full:
+  Stop Script
+ ContinueLoop
+Check Prophecy Exists
+ Yes:
+  Click Seal Button
+  Check "not enough coins" dialog
+   Yes:
+    Stop Script
+   No:
+    Confirm Prophecy Sealing
+    Put item to inventory
+ No:
+  Click Seek Button
+  Check "not enough coins" dialog
+   Yes:
+    Stop Script
+   No:
+    Move to "Check Prophecy Window is open" step (ContinueLoop)
+#ce
 
 Main()
 
@@ -60,45 +94,107 @@ Func Main()
 
    Log_(@ScriptName & ' is ready. Open Navali Prophecies dialog and press Ctrl+K to start or Ctrl+L to pause!')
 
-   InitInventorySettings()
-   Local $aInventory = False
+   Local $aInventory[0]
 
    While True
       WinWaitActive($hWnd)
 
-   ;   $aInventory = InventoryScan()
-   ;   InventoryPutItem($aInventory)
-   ;   If @error Then Log_('errror')
-
-   ;   Beep(500, 500)
-   ;   Exit
       Sleep(100)
 
-      If Not $isStarted Then
+      If Not $g_isStarted Then
          ContinueLoop
       EndIf
 
-      If CheckProphWindowOpen() Then
-         Log_('Prophecies window is Open')
-      Else
-         SetStateStop('Prophecies window is Closed.')
-         ContinueLoop
+      If $g_isRestarted Then
+         Log_('Request user for Stash and Navali positions...')
+         If Not AskUserToPointCharacters() Then
+            Stop('The request for Stash and Navali was cancelled.')
+            ContinueLoop
+         EndIf
+
+         Sleep(100)
       EndIf
 
+      InitInventorySettings()
       If CheckInventoryClosed() Then
          Log_('Opening inventory...')
          Send('{i}')
       EndIf
 
-      If Not IsArray($aInventory) Or $aInventoryNeedRescan Then
-         $aInventoryNeedRescan = False
+      If Not UBound($aInventory) Or $g_isRestarted Then
+         $g_isRestarted = False
          Log_('Scanning inventory...')
+
+         ; Move cursor out of inventory
+         MouseMove(Random(100, 700, 1), Random(100, 600, 1))
+
          $aInventory = StorageScan($COLOR_EMPTY, $COLOR_EMPTY_SHADE)
       EndIf
 
       If Not UBound($aInventory) Then
-         SetStateStop('Inventory is full.')
-         ContinueLoop
+         Log_('Inventory is full. Scanning inventory for Prophecies...')
+         $aProphecyInventory = StorageScan($COLOR_PROPHECY, $COLOR_PROPHECY_SHADE)
+         If UBound($aProphecyInventory) Then
+            Log_('Trying to move Prophecies to Stash...')
+
+            Send('{ESC}')
+            Sleep(100)
+            Log_('Opening Stash...')
+            ClickStash()
+
+            ; Move cursor out of Stash
+            MouseMove(Random(1000, 1800, 1), Random(100, 600, 1))
+
+            InitStashSettings()
+            If Not IsStorageVisible() Then
+               InitStashQuadSettings()
+               If Not IsStorageVisible() Then
+                  Stop('No stash visible')
+                  ContinueLoop
+               EndIf
+            EndIf
+
+            InitInventorySettings()
+            StorageCtrlClickItem($aProphecyInventory)
+            If @error Then
+               Stop()
+               ContinueLoop
+            EndIf
+
+            Send('{ESC}')
+            Sleep(100)
+         Else
+            Stop('Inventory is full.')
+            ContinueLoop
+         EndIf
+      EndIf
+
+      If CheckProphWindowOpen() Then
+         Log_('Prophecies window is Open')
+      Else
+         Log_('Trying to click Navali...')
+
+         ; Move cursor out of inventory
+         MouseMove(Random(100, 700, 1), Random(100, 600, 1))
+
+         If Not CheckInventoryClosed() Then
+            Send('{ESC}')
+            Sleep(100)
+         EndIf
+
+         ClickNavali()
+         If Not CheckProphWindowOpen() Then
+            Stop('Prophecies window is Closed.')
+            ContinueLoop
+         EndIf
+      EndIf
+
+      ; Move cursor out of inventory
+      MouseMove(Random(300, 330, 1), Random(770, 780, 1))
+
+      If CheckInventoryClosed() Then
+         Log_('Opening inventory...')
+         Send('{i}')
       EndIf
 
       If CheckProphecyExist() Then
@@ -106,31 +202,31 @@ Func Main()
          Sleep(100)
 
          If CheckEmptyWalletDialog() Then
-            SetStateStop('Not enough Silver coins to Seal.')
+            Stop('Not enough Silver coins to Seal.')
             ContinueLoop
          EndIf
 
          If CheckConfirmDialog() Then
             PressConfirmDialog()
          Else
-            SetStateStop('Unknown problem in CheckConfirmDialog.')
+            Stop('Unknown problem in CheckConfirmDialog.')
             ContinueLoop
          EndIf
 
          StoragePutItem($aInventory)
          If @error Then
-            SetStateStop('Inventory is full.')
+            Stop('Inventory is full.')
             ContinueLoop
          EndIf
 
-         ;SetStateStop('TODO.')
+         ;Stop('TODO.')
          ;ContinueLoop
       Else
          PressSeek()
          Sleep(100)
 
          If CheckEmptyWalletDialog() Then
-            SetStateStop('Not enough Silver coins to Seek.')
+            Stop('Not enough Silver coins to Seek.')
             ContinueLoop
          EndIf
 
@@ -142,15 +238,21 @@ EndFunc
 Func Start($state = True)
    $state = IsDeclared('state') ? $state : True ; Because HotKeySet ignore default values of arguments too!
 
-   $aInventoryNeedRescan = True
-   $isStarted = $state
-   Log_('Started: ' & $isStarted)
+   $g_isRestarted = True
+   $g_isStarted = $state
+   Log_('Started: ' & $g_isStarted)
 
-   Beep($isStarted ? 250 : 200, 250)
+   Beep($g_isStarted ? 250 : 200, 250)
 EndFunc
 
-Func Stop()
-   SetStateStop('Sent Stop signal.')
+Func Stop($reason = '')
+   $reason = IsDeclared('reason') ? $reason : 'User interrupt' ; Because HotKeySet ignore default values of arguments too!
+
+   If $reason Then Log_($reason)
+   Log_('Stopping the script...')
+
+   Start(False)
+   ; ContinueLoop ; "ExitLoop/ContinueLoop" statements only valid from inside a For/Do/While loop.
 EndFunc
 
 Func CheckProphWindowOpen()
@@ -239,7 +341,7 @@ Func CheckInventoryClosed()
    Const $POSITION_Y = 74
    Const $DELTA_X = 7
    Const $DELTA_Y = 1
-   Const $CHECKSUM = 147196555
+   Const $CHECKSUM = 3809219403
 
    $checksumActual = PixelChecksum($POSITION_X, $POSITION_Y, $POSITION_X + $DELTA_X, $POSITION_Y + $DELTA_Y, 1, $hWnd)
    Log_('CheckInventoryClosed: ' & $checksumActual, $LOG_LEVEL_DEBUG)
@@ -247,12 +349,124 @@ Func CheckInventoryClosed()
    Return $CHECKSUM <> $checksumActual
 EndFunc
 
-Func SetStateStop($reason = '')
-   $reason = IsDeclared('reason') ? $reason : 'User command' ; Because HotKeySet ignore default values of arguments too!
+Func AskUserToPointCharacters()
+   If Not IsDeclared('g_aNavaliPos') Then
+      Global $g_aNavaliPos[0]
+   EndIf
+   If Not IsDeclared('g_aStashPos') Then
+      Global $g_aStashPos[0]
+   EndIf
 
-   If $reason Then Log_($reason)
-   Log_('Stopping the script...')
+   $iResult = MsgBox(UBound($g_aNavaliPos) ? $MB_CANCELTRYCONTINUE : $MB_OKCANCEL, 'Set position of NAVALI', _
+      'Close all ingame dialogs (Esc) and mouse click on the NAVALI.' & @CRLF & @CRLF & _
+      'Make sure NAVALI and Stash are close enough so that the character doesn''t move when you click on both.' & @CRLF & @CRLF & _
+      'Ok (Continue) to set the position, Cancel to adjust positions, Retry to use previous positions.')
 
-   Start(False)
-   ; ContinueLoop ; "ExitLoop/ContinueLoop" statements only valid from inside a For/Do/While loop.
+   If $iResult = $IDCANCEL Then
+      Return False
+   EndIf
+
+   If $iResult = $IDCONTINUE Or $iResult = $IDOK Then
+      $g_aNavaliPos = ListenForUserACtion()
+      If @error Then
+         Return False
+      EndIf
+   EndIf
+
+   $iResult = MsgBox(UBound($g_aStashPos) ? $MB_CANCELTRYCONTINUE : $MB_OKCANCEL, 'Set position of STASH', _
+      'Close all ingame dialogs (Esc) and mouse click on the STASH.' & @CRLF & @CRLF & _
+      'Make sure STASH and Navali are close enough so that the character doesn''t move when you click on both.' & @CRLF & @CRLF & _
+      'Also Make sure ACTIVE stash tab is for Prophecies purpose.' & @CRLF & @CRLF & _
+      'Ok (Continue) to set the position, Cancel to adjust positions, Retry to use previous positions')
+
+   If $iResult = $IDCANCEL Then
+      Return False
+   EndIf
+
+   If $iResult = $IDCONTINUE Or $iResult = $IDOK Then
+      $g_aStashPos = ListenForUserACtion()
+      If @error Then
+         Return False
+      EndIf
+   EndIf
+
+   Return True
+EndFunc
+
+Func ClickNavali()
+   Const $NAVALI_DIALOG_PROPH_POS_X = 870
+   Const $NAVALI_DIALOG_PROPH_WIDTH = 180
+   Const $NAVALI_DIALOG_PROPH_POS_Y = 183
+
+   MouseClick($MOUSE_CLICK_LEFT, $g_aNavaliPos[0], $g_aNavaliPos[1])
+   Sleep(150)
+   MouseClick($MOUSE_CLICK_LEFT, Random($NAVALI_DIALOG_PROPH_POS_X, $NAVALI_DIALOG_PROPH_POS_X + $NAVALI_DIALOG_PROPH_WIDTH, 1), $NAVALI_DIALOG_PROPH_POS_Y)
+   Sleep(150)
+EndFunc
+
+Func ClickStash()
+   MouseClick($MOUSE_CLICK_LEFT, $g_aStashPos[0], $g_aStashPos[1])
+   Sleep(150)
+EndFunc
+
+; '01' - Left mouse button {@see _IsPressed}
+Func ListenForUserACtion($keyCode = '01')
+   Const $USER_CANCELED = 1
+
+   Local $hDLL = DllOpen("user32.dll")
+
+   Local $aResult[2]
+
+   While 1
+      If _IsPressed($keyCode, $hDLL) Then
+         Log_("ListenForUserACtion - Key was pressed.", $LOG_LEVEL_DEBUG)
+         ; Wait until key is released.
+         While _IsPressed($keyCode, $hDLL)
+            Sleep(10)
+         WEnd
+
+         Log_("ListenForUserACtion - Key was released.", $LOG_LEVEL_DEBUG)
+         $aResult = MouseGetPos()
+         ExitLoop
+      ElseIf _IsPressed("1B", $hDLL) Then
+         Log_("The Esc Key was pressed, therefore we will stop listening action.", $LOG_LEVEL_DEBUG)
+         SetError($USER_CANCELED)
+         ExitLoop
+      EndIf
+      Sleep(10)
+   WEnd
+
+   DllClose($hDLL)
+
+   Return $aResult
+EndFunc
+
+Func StorageCtrlClickItem(ByRef $aInventory)
+   Const $ERROR_INTERRUPT = 1
+
+   $isError = False
+
+   Send('{CTRLDOWN}')
+
+   For $i = 0 To UBound($aInventory) - 1
+      If Not $g_isStarted Then
+         $isError = True
+         ExitLoop
+      EndIf
+
+      StorageClickItem($aInventory[$i][0], $aInventory[$i][1])
+      Sleep(150)
+
+      If Not CellCheckIsEmpty($aInventory[$i][0], $aInventory[$i][1]) Then
+         Stop('Looks like stash is full')
+         $isError = True
+         ExitLoop
+      EndIf
+   Next
+
+   Send('{CTRLUP}')
+
+   If $isError Then
+      SetError($ERROR_INTERRUPT)
+   EndIf
 EndFunc
