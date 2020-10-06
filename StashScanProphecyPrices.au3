@@ -38,7 +38,7 @@ Func Main()
      Exit
    EndIf
 
-   Log_(@ScriptName & ' is ready. Press Ctrl+K to start or Ctrl+L to pause!')
+   Log_(@ScriptName & ' is ready. Press Ctrl+I to start or Ctrl+O to pause!')
 
    Local $aStash = False
 
@@ -61,14 +61,14 @@ Func Main()
 
          ;_ArrayDisplay($aStash)
 
-         If Not $isStarted Then ExitLoop
+         If Not $isStarted Then
+            ContinueLoop
+         EndIf
 
          $oDictPrices = FetchPropheciesPrices()
+         Local $aResult[1][6] = [['Name', 'Title', 'Cell', 'Chaos', 'Exalted', 'Hash']]
 
-         $iStashLen = UBound($aStash)
-         Local $aResult[$iStashLen][6]
-
-         For $i = 0 To $iStashLen - 1
+         For $i = 0 To UBound($aStash) - 1
             If $aStash[$i][2] Then
                $info = SplitProphecyInfo($aStash[$i][2])
                If @error Then
@@ -81,24 +81,34 @@ Func Main()
 
                $sHash = String(_Crypt_HashData($name & $text, $CALG_MD5))
 
-               $aResult[$i][0] = $name
-               $aResult[$i][1] = $text
-               $aResult[$i][2] = $aStash[$i][0] & 'x' & $aStash[$i][1]
-               $aResult[$i][5] = $sHash
-
                $aItemPrice = $oDictPrices.item($sHash)
+               Local $iChaos, $iEx
                If IsArray($aItemPrice) Then
-                  $aResult[$i][3] = $aItemPrice[0] ; chaosValue
-                  $aResult[$i][4] = $aItemPrice[1] ; exaltedValue
+                  $iChaos = $aItemPrice[0]
+                  $iEx = $aItemPrice[1]
                Else
-                  Logv('Error getting price', VarGetType($aItemPrice), $aItemPrice, $aResult[$i][0], $sHash)
+                  Logv('Error getting price', VarGetType($aItemPrice), $aItemPrice, $name & $text, $sHash)
+               EndIf
+
+               Local $aResultSub[1][6] = [[ _
+                  $name, _
+                  $text, _
+                  $aStash[$i][0] & 'x' & $aStash[$i][1], _
+                  $iChaos, _
+                  $iEx, _
+                  $sHash _
+               ]]
+
+               _ArrayAdd($aResult, $aResultSub)
+               If @error Then
+                  Log_('Error: ' & @error)
                EndIf
             EndIf
          Next
          Beep(100, 100)
-         _ArrayDisplay($aResult, "Ценность пророчеств", Default,Default,Default, "Название|Описание|Позиция в стеше|Цена (хаос)|Цена (екзоль)|Хеш")
+         ;_ArrayDisplay($aResult, "Ценность пророчеств", Default,Default,Default, "Название|Описание|Позиция в стеше|Цена (хаос)|Цена (екзоль)|Хеш")
 
-         _FileWriteFromArray(@ScriptFullPath & '.csv', $aResult)
+         _FileWriteFromArray(@ScriptFullPath & '.tsv', $aResult, Default, Default, Chr(9)); Tab
          If @error Then
             Logv('Error write file: ', @error)
          EndIf
@@ -125,7 +135,7 @@ Func SplitProphecyInfo($sItemInfo)
       Return SetError(1, 0, '')
    EndIf
 
-   Local $result[2] = [StringRegExpReplace($info[2], '(\r\n|\n|\x0b|\f|\r|\x85)', ''), StringRegExpReplace($info[6], '(\r\n|\n|\x0b|\f|\r|\x85)', '')]
+   Local $result[2] = [StringRegExpReplace($info[2], '(\r\n|\n|\x0b|\f|\r|\x85)', ''), StringRegExpReplace($info[6], '((\r\n|\n|\x0b|\f|\r|\x85)|\s+$)', '')]
 
    Return $result
 EndFunc
@@ -145,7 +155,7 @@ Func Stop($reason = '')
 
    If $reason Then Log_($reason)
    Log_('Stopping the script...')
-   Exit
+
    Start(False)
    ; ContinueLoop ; "ExitLoop/ContinueLoop" statements only valid from inside a For/Do/While loop.
 EndFunc

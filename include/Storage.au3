@@ -179,6 +179,10 @@ Func GetItemInfo($bPushCtrlC = True)
       Return SetError(@error, 0, '')
    EndIf
 
+   ;Clean buffer
+   $iCleared = ClipPut('')
+   If Not $iCleared Then Log_('[!] Failed to clear clipboard.')
+
    Return $sItemInfo
 EndFunc
 
