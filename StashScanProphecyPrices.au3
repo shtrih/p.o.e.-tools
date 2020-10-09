@@ -40,102 +40,132 @@ Func Main()
 
    Log_(@ScriptName & ' is ready. Press Ctrl+I to start or Ctrl+O to pause!')
 
-   Local $aStash = False
+   $oDictPrices = FetchPropheciesPrices()
 
    While True
       Sleep(100)
       WinWaitActive($hWnd)
 
-      If $isStarted Then
-         InitStashSettings()
+      If Not $isStarted Then
+         ContinueLoop
+      EndIf
+
+      InitStashSettings()
+      If Not IsStorageVisible() Then
+         InitStashQuadSettings()
          If Not IsStorageVisible() Then
-            InitStashQuadSettings()
-            If Not IsStorageVisible() Then
-               Stop('No stash visible')
-               ContinueLoop
-            EndIf
-         EndIf
-
-         $aStash = StorageScanItemsInfo($COLOR_EMPTY, $COLOR_EMPTY_SHADE, $isStarted)
-         Beep(100, 100)
-
-         ;_ArrayDisplay($aStash)
-
-         If Not $isStarted Then
+            Stop('No stash visible')
             ContinueLoop
          EndIf
+      EndIf
 
-         $oDictPrices = FetchPropheciesPrices()
-         Local $aResult[1][6] = [['Name', 'Title', 'Cell', 'Chaos', 'Exalted', 'Hash']]
+      Local $aStash[0][3]
+      Local $aResult[1][6] = [['Name', 'Title', 'Cell', 'Chaos', 'Exalted', 'Hash']]
 
-         For $i = 0 To UBound($aStash) - 1
-            If $aStash[$i][2] Then
-               $info = SplitProphecyInfo($aStash[$i][2])
-               If @error Then
-                  Logv('Error parsing item info. Skipping...', $aStash[$i][0] & 'x' & $aStash[$i][1], $aStash[$i][2])
-                  ContinueLoop
-               EndIf
+      $isInverted = False
+      $iVertMax = $g_vertCount - 1
 
-               $name = $info[0]
-               $text = $info[1]
+      For $x = 0 to ($g_horCount - 1)
+         $isInverted = Mod($x, 2) = 0 ? False : True
 
-               $sHash = String(_Crypt_HashData($name & $text, $CALG_MD5))
+         For $y = 0 to $iVertMax
+            If Not $isStarted Then
+               ExitLoop 2
+            EndIf
 
-               $aItemPrice = $oDictPrices.item($sHash)
-               Local $iChaos, $iEx
-               If IsArray($aItemPrice) Then
-                  $iChaos = $aItemPrice[0]
-                  $iEx = $aItemPrice[1]
-               Else
-                  Logv('Error getting price', VarGetType($aItemPrice), $aItemPrice, $name & $text, $sHash)
-               EndIf
+            $iSnakeY = $isInverted ? $iVertMax - $y : $y
+            CellMove($x, $iSnakeY)
 
-               Local $aResultSub[1][6] = [[ _
-                  $name, _
-                  $text, _
-                  $aStash[$i][0] & 'x' & $aStash[$i][1], _
-                  $iChaos, _
-                  $iEx, _
-                  $sHash _
-               ]]
+            If Not CellCheckIsEmpty($x, $iSnakeY) Then
+               Local $resultSub[1][3] = [[$x, $iSnakeY, GetItemInfo()]]
+               _ArrayAdd($aStash, $resultSub)
 
-               _ArrayAdd($aResult, $aResultSub)
-               If @error Then
-                  Log_('Error: ' & @error)
+               If $resultSub[0][2] Then
+                  $info = SplitProphecyInfo($resultSub[0][2])
+                  If @error Then
+                     Logv('Error parsing item info. Skipping...', $x & 'x' & $iSnakeY, $resultSub[0][2])
+                     ContinueLoop
+                  EndIf
+
+                  $name = $info[0]
+                  $text = $info[1]
+                  $sNote = $info[2]
+
+                  $sHash = String(_Crypt_HashData($name & $text, $CALG_MD5))
+
+                  $aItemPrice = $oDictPrices.item($sHash)
+                  Local $iChaos = '-', $iEx = '-'
+                  If IsArray($aItemPrice) Then
+                     $iChaos = $aItemPrice[0]
+                     $iEx = $aItemPrice[1]
+
+                     ItemSetPrice($iChaos, $sNote, $x, $iSnakeY)
+                  Else
+                     Logv('Error getting price', VarGetType($aItemPrice), $aItemPrice, $name & $text, $sHash)
+                  EndIf
+
+                  Local $aResultSub[1][6] = [[ _
+                     $name, _
+                     $text, _
+                     $x & 'x' & $iSnakeY, _
+                     Round($iChaos, 1), _
+                     $iEx, _
+                     $sHash _
+                  ]]
+
+                  _ArrayAdd($aResult, $aResultSub)
+                  If @error Then
+                     Log_('Error: ' & @error)
+                  EndIf
                EndIf
             EndIf
          Next
-         Beep(100, 100)
-         ;_ArrayDisplay($aResult, "Ценность пророчеств", Default,Default,Default, "Название|Описание|Позиция в стеше|Цена (хаос)|Цена (екзоль)|Хеш")
+      Next
 
-         _FileWriteFromArray(@ScriptFullPath & '.tsv', $aResult, Default, Default, Chr(9)); Tab
-         If @error Then
-            Logv('Error write file: ', @error)
-         EndIf
+      Beep(100, 100)
+      ;_ArrayDisplay($aResult, "Ценность пророчеств", Default,Default,Default, "Название|Описание|Позиция в стеше|Цена (хаос)|Цена (екзоль)|Хеш")
 
-         Stop()
-         ;ExitLoop
+      _FileWriteFromArray(@ScriptFullPath & '.tsv', $aResult, Default, Default, Chr(9)); Tab
+      If @error Then
+         Logv('Error write file: ', @error)
       EndIf
+
+      Stop()
+      ;ExitLoop
    WEnd
 EndFunc
 
 Func SplitProphecyInfo($sItemInfo)
    ;Rarity: Normal
-   ;Erased from Memory
+   ;The Karui Rebellion
    ;--------
-   ;A foe feared for an aeon falls and is scoured from the pages of history.
+   ;Thaumaturgy and faith clash among giant ruins; a recreation of a long-gone rebellion.
    ;--------
-   ;You will slay a very powerful foe and it will drop an Orb of Scouring.
+   ;You will defeat the Gemling Legionnaires while holding Karui Ward.
    ;--------
    ;Right-click to add this prophecy to your character.
+   ;--------
+   ;Note: ~b/o 1 chaos
    $info = StringSplit($sItemInfo, @LF)
-   $iSize = UBound($info)
-
-   If @error Or $iSize < 8 Then
+   If @error Then
       Return SetError(1, 0, '')
    EndIf
 
-   Local $result[2] = [StringRegExpReplace($info[2], '(\r\n|\n|\x0b|\f|\r|\x85)', ''), StringRegExpReplace($info[6], '((\r\n|\n|\x0b|\f|\r|\x85)|\s+$)', '')]
+   $iSize = UBound($info)
+   If $iSize < 8 Then
+      Return SetError(1, 0, '')
+   EndIf
+
+   $sNote = ''
+   If $iSize >= 11 And StringRegExp($info[10], 'Note:') Then
+      $sNote = StringRegExpReplace($info[10], '(Note:\s|\r\n|\n|\x0b|\f|\r|\x85)', '')
+   EndIf
+
+   Local $result[3] = [ _
+      StringRegExpReplace($info[2], '(\r\n|\n|\x0b|\f|\r|\x85)', ''), _
+      StringRegExpReplace($info[6], '((\r\n|\n|\x0b|\f|\r|\x85)|\s+$)', ''), _
+      $sNote _
+   ]
 
    Return $result
 EndFunc
@@ -143,11 +173,12 @@ EndFunc
 Func Start($state = True)
    $state = IsDeclared('state') ? $state : True ; Because HotKeySet ignore default values of arguments too!
 
+   Beep($isStarted ? 250 : 200, 250)
+   Sleep(2000)
+
    $inventoryNeedRescan = True
    $isStarted = $state
    Log_('Started: ' & $isStarted)
-
-   Beep($isStarted ? 250 : 200, 250)
 EndFunc
 
 Func Stop($reason = '')
@@ -158,4 +189,41 @@ Func Stop($reason = '')
 
    Start(False)
    ; ContinueLoop ; "ExitLoop/ContinueLoop" statements only valid from inside a For/Do/While loop.
+EndFunc
+
+Func ItemSetPrice($fPrice, $sNote, $cellX, $cellY)
+   $sNewNote = '~b/o ' & Round($fPrice, 1) & ' chaos'
+
+   If $sNote And $sNote = $sNewNote Then
+      Return
+   EndIf
+
+   MouseClick($MOUSE_CLICK_RIGHT)
+
+   If $sNote Then
+      ; по х сдвигаемся на 3 ячейки влево, если больше 3 столбца
+      $cellY += 1 ; вниз от текущей ячейки
+      $pos = CellNum2PixelPos($cellX, $cellY)
+      $priceSelectorOffsetX = $pos[0] > 175 ? -150 : 0 ; позиция селекта
+      $priceSelectorOffsetY = 60 ; позиция селекта
+      $posX = $pos[0] + $priceSelectorOffsetX
+      $posY = $pos[1] + $priceSelectorOffsetY
+
+      MouseClick($MOUSE_CLICK_LEFT, $posX, $posY)
+
+      Send('{UP}')
+      Send('{UP}')
+      Send('{UP}')
+      Send('{ENTER}')
+
+      $textFieldOffsetX = 200
+      MouseClick($MOUSE_CLICK_LEFT, $posX + $textFieldOffsetX, $posY)
+
+      Send('^a')
+   EndIf
+
+   Sleep(100)
+   Send($sNewNote, 1)
+   Sleep(100)
+   Send('{ENTER}')
 EndFunc

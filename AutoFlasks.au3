@@ -44,13 +44,15 @@ Func Main()
    Log_(@ScriptName & ' started!')
 
    $isStrongFlaskCooldown = False
+   $hTimerCheckWindow = null
    $hTimer = null
 
    While True
-      Sleep($CHECK_PERIOD)
+      $hTimerCheckWindow = TimerInit()
 
       If IsHwnd($g_hWnd) Then
          $hwnd = WinWaitActive($g_hWnd, '', 10)
+
          If $hwnd = 0 Then ; timeout
             Log_('WaitActive timeout. Continue...', $LOG_LEVEL_DEBUG)
             ContinueLoop
@@ -79,66 +81,76 @@ Func Main()
          Log_($windowWidth & 'x' & $windowHeight)
       EndIf
 
-      If $hTimer <> null Then
-         $fTimeDiff = TimerDiff($hTimer)
+      While TimerDiff($hTimerCheckWindow) < 10000
+         Local $hCycleTimer = TimerInit()
 
-         If $isStrongFlaskCooldown Then
-            Log_('Cooldown: ' & $g_iBigCooldown - $fTimeDiff)
+         ;Sleep(1)
+         If $hTimer <> null Then
+            $fTimeDiff = TimerDiff($hTimer)
 
-            If $fTimeDiff > $g_iBigCooldown Then
+            If $isStrongFlaskCooldown Then
+               ;Log_('Cooldown: ' & $g_iBigCooldown - $fTimeDiff)
+
+               If $fTimeDiff > $g_iBigCooldown Then
+                  $hTimer = null
+                  $isStrongFlaskCooldown = False
+               EndIf
+            ElseIf $fTimeDiff > $g_iSmallCooldown Then
                $hTimer = null
-               $isStrongFlaskCooldown = False
-            EndIf
-         ElseIf $fTimeDiff > $g_iSmallCooldown Then
-            $hTimer = null
-         Else
-            Log_('Cooldown: ' & $g_iSmallCooldown - $fTimeDiff)
-         EndIf
-      EndIf
-
-      $bSecPassed = oneSecPassed()
-
-      If Not isVisibleHP() Then
-         If $bSecPassed Then Log_('HP is not visible', $LOG_LEVEL_DEBUG)
-         ContinueLoop
-      EndIf
-
-      If $bSecPassed Then Log_('HP visible', $LOG_LEVEL_DEBUG)
-
-      If (Not $isStrongFlaskCooldown) Then
-         $hpChecksum = getHPChecksum($g_iBigPercent, $windowHeight)
-         If $g_iBigHash = 0 Then
-            Log_('Writing new BigFlask hash')
-            $g_iBigHash = $hpChecksum
-            $iResult = configWriteHash($eg_sConfigFilePath, 'BigFlask', $g_iBigHash)
-            If $iResult = 0 Then
-               Log_('Fail!')
-            EndIf
-         ElseIf ($hpChecksum <> $g_iBigHash) Then
-            DrinkFlask($g_sBigHotkey)
-            $isStrongFlaskCooldown = True
-            $hTimer = TimerInit()
-         EndIf
-      EndIf
-
-      If (Not $isStrongFlaskCooldown) Then
-         $hpChecksum = getHPChecksum($g_iSmallPercent, $windowHeight)
-         If $g_iSmallHash = 0 Then
-            Log_('Writing new SmallFlask hash')
-            $g_iSmallHash = $hpChecksum
-            $iResult = configWriteHash($eg_sConfigFilePath, 'SmallFlask', $g_iSmallHash)
-            If $iResult = 0 Then
-               Log_('Fail!')
-            EndIf
-         ElseIf ($hpChecksum <> $g_iSmallHash) Then
-            If $hTimer = null Then
-               DrinkFlask($g_sSmallHotkey)
-               $hTimer = TimerInit()
             Else
-               Log_(StringFormat('Мало хп (<%d%%), но фласка в кд (%s)', $g_iSmallPercent, $g_iSmallCooldown - TimerDiff($hTimer)))
+               ;Log_('Cooldown: ' & $g_iSmallCooldown - $fTimeDiff)
             EndIf
          EndIf
-      EndIf
+
+         $bSecPassed = oneSecPassed()
+
+         If Not isVisibleHP() Then
+            If $bSecPassed Then Log_('HP is not visible', $LOG_LEVEL_DEBUG)
+            ContinueLoop
+         EndIf
+         ;Log_('Iteration time: ' & TimerDiff($hCycleTimer))
+
+         If $bSecPassed Then Log_('HP visible', $LOG_LEVEL_DEBUG)
+
+         If (Not $isStrongFlaskCooldown) Then
+            $hpChecksum = getHPChecksum($g_iBigPercent, $windowHeight)
+            If $g_iBigHash = 0 Then
+               Log_('Writing new BigFlask hash')
+               $g_iBigHash = $hpChecksum
+               $iResult = configWriteHash($eg_sConfigFilePath, 'BigFlask', $g_iBigHash)
+               If $iResult = 0 Then
+                  Log_('Fail!')
+               EndIf
+            ElseIf ($hpChecksum <> $g_iBigHash) Then
+               DrinkFlask($g_sBigHotkey)
+               $isStrongFlaskCooldown = True
+               $hTimer = TimerInit()
+            EndIf
+         EndIf
+
+         If (Not $isStrongFlaskCooldown) Then
+            $hpChecksum = getHPChecksum($g_iSmallPercent, $windowHeight)
+            If $g_iSmallHash = 0 Then
+               Log_('Writing new SmallFlask hash')
+               $g_iSmallHash = $hpChecksum
+               $iResult = configWriteHash($eg_sConfigFilePath, 'SmallFlask', $g_iSmallHash)
+               If $iResult = 0 Then
+                  Log_('Fail!')
+               EndIf
+            ElseIf ($hpChecksum <> $g_iSmallHash) Then
+               If $hTimer = null Then
+                  DrinkFlask($g_sSmallHotkey)
+                  $hTimer = TimerInit()
+               Else
+                  Log_(StringFormat('Мало хп (<%d%%), но фласка в кд (%s)', $g_iSmallPercent, $g_iSmallCooldown - TimerDiff($hTimer)))
+               EndIf
+            EndIf
+         EndIf
+
+         ;Log_('Iteration time: ' & TimerDiff($hCycleTimer))
+      WEnd
+
+      Log_('Iteration time end: ' & TimerDiff($hCycleTimer))
    WEnd
 EndFunc
 
@@ -158,18 +170,18 @@ Func getHPChecksum($hpPercent, $windowHeight)
 EndFunc
 
 Func isVisibleHP()
-   $result = False
+   ;$result = False
 
-   Opt('PixelCoordMode', 0)
+   ;Opt('PixelCoordMode', 0)
 
-   $p = PixelSearch(30, 880, 45, 890, 0xffebb7, 15, 1, $g_hWnd) ; Ищем этот цвет на лице тяночки
-   If Not @error Then
-      $result = True
-   EndIf
+   $iColor = PixelGetColor(38, 913)
+   ;Log_($iColor)
+   ;$p = PixelSearch(37, 910, 42, 916, 0xdbbd8d, 5, 1, $g_hWnd) ; Ищем этот цвет на лице тяночки
+   Return $iColor == 0xdbbd8d
 
-   Opt('PixelCoordMode', Default)
+   ;Opt('PixelCoordMode', Default)
 
-   Return $result
+   Return False
 EndFunc
 
 Func DrinkFlask($flaskHotkey)
@@ -181,7 +193,8 @@ EndFunc
 Func configCreate($sFilePath)
    Log_('Trying to write config file ' & $sFilePath)
 
-   $iResult = IniWrite($sFilePath, 'SmallFlask', 'hotkey', $eg_sSmallHotkey & @CRLF & '; e.g. {f1} or ^q. See also: https://www.autoitscript.com/autoit3/docs/functions/HotKeySet.htm')
+   ;$iResult = IniWrite($sFilePath, 'SmallFlask', 'hotkey', $eg_sSmallHotkey & @CRLF & '; e.g. {f1} or ^q. See also: https://www.autoitscript.com/autoit3/docs/functions/HotKeySet.htm')
+   $iResult = IniWrite($sFilePath, 'SmallFlask', 'hotkey', $eg_sSmallHotkey)
    IniWrite($sFilePath, 'SmallFlask', 'cooldown_msec', $eg_iSmallCooldown)
    IniWrite($sFilePath, 'SmallFlask', 'trigger_percent', $eg_iSmallPercent)
    IniWrite($sFilePath, 'SmallFlask', 'trigger_hash', $eg_iSmallHash)

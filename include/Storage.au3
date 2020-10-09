@@ -154,6 +154,9 @@ Func IsStorageVisible()
    PixelSearch($x, $y, $x + 1, $y + 1, 0x2a2117, 2) ; empty cell color
    $bResult = Not @error
 
+;Logv($x, $y, $x + 1, $y + 1)
+;Log_(SquareGetColors($x, $y, $x + 1, $y + 1), $LOG_LEVEL_DEBUG)
+
    Return $bResult
 EndFunc
 
@@ -170,7 +173,7 @@ EndFunc
 Func GetItemInfo($bPushCtrlC = True)
    If $bPushCtrlC Then
       Send('^c')
-      Sleep(100)
+      Sleep(200)
    EndIf
 
    $sItemInfo = ClipGet()

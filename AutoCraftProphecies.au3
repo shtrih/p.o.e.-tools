@@ -29,7 +29,7 @@ Global $g_isRestarted = True
 
 Global Const $PropheciesPositions = [ [320, 256], [168,  315], [458, 315], [132, 480], [492, 480], [224, 640], [408, 640] ]
 Global Const $ProphecySeekButtonPositions = [ [298, 770], [365, 787] ]
-Global Const $ProphecySealButtonPositions = [ [298, 215], [365, 232] ]
+Global Const $ProphecySealButtonPositions = [ [298, 215], [365, 232], [389, 602], [458, 619] ]
 
 #cs
 WaitForStart
@@ -112,11 +112,12 @@ Func Main()
             ContinueLoop
          EndIf
 
-         Sleep(100)
+         Sleep(200)
       EndIf
 
       InitInventorySettings()
       If CheckInventoryClosed() Then
+      ;If Not IsStorageVisible() Then
          Log_('Opening inventory...')
          Send('{i}')
       EndIf
@@ -126,7 +127,8 @@ Func Main()
          Log_('Scanning inventory...')
 
          ; Move cursor out of inventory
-         MouseMove(Random(100, 700, 1), Random(100, 600, 1))
+         Log_('Move cursor out of inventory (3)')
+         MouseMove(Random(650, 1200, 1), Random(400, 800, 1))
 
          $aInventory = StorageScan($COLOR_EMPTY, $COLOR_EMPTY_SHADE)
       EndIf
@@ -143,7 +145,8 @@ Func Main()
             ClickStash()
 
             ; Move cursor out of Stash
-            MouseMove(Random(1000, 1800, 1), Random(100, 600, 1))
+            Log_('Move cursor out of Stash')
+            MouseMove(Random(650, 1200, 1), Random(400, 800, 1))
 
             InitStashSettings()
             If Not IsStorageVisible() Then
@@ -175,7 +178,8 @@ Func Main()
          Log_('Trying to click Navali...')
 
          ; Move cursor out of inventory
-         MouseMove(Random(100, 700, 1), Random(100, 600, 1))
+         Log_('Move cursor out of inventory (4)')
+         MouseMove(Random(650, 1200, 1), Random(400, 800, 1))
 
          If Not CheckInventoryClosed() Then
             Send('{ESC}')
@@ -190,9 +194,11 @@ Func Main()
       EndIf
 
       ; Move cursor out of inventory
-      MouseMove(Random(300, 330, 1), Random(770, 780, 1))
+      ;Log_('Move cursor out of inventory (2)')
+      ;MouseMove(Random(300, 330, 1), Random(770, 780, 1))
 
       If CheckInventoryClosed() Then
+      ;If Not IsStorageVisible() Then
          Log_('Opening inventory...')
          Send('{i}')
       EndIf
@@ -218,6 +224,10 @@ Func Main()
             Stop('Inventory is full.')
             ContinueLoop
          EndIf
+
+         ; Move cursor out of inventory
+         ;Log_('Move cursor out of inventory (1)')
+         ;MouseMove(Random(650, 1200, 1), Random(400, 800, 1))
 
          ;Stop('TODO.')
          ;ContinueLoop
@@ -257,25 +267,26 @@ EndFunc
 
 Func CheckProphWindowOpen()
    $left = $ProphecySeekButtonPositions[0][0]
-   $top = $ProphecySeekButtonPositions[1][1]
+   $top = $ProphecySeekButtonPositions[0][1]
    $right = $left + 3
    $bottom = $top + 1
    ; Used 'Seek' button to check. It have 3 states...
-   Const $CHECKSUM = 1928661472
-   Const $CHECKSUM_HOVER = 2469203117
-   Const $CHECKSUM_DISABLED = 1724451001
+   Const $CHECKSUM = 409076213
+   Const $CHECKSUM_HOVER = 778699702
+   Const $CHECKSUM_DISABLED = 299827555
 
    $checksumActual = PixelChecksum($left, $top, $right, $bottom, 1, $hWnd)
-   Log_('CheckProphWindowOpen: ' & PixelChecksum($left, $top, $right, $bottom, 1, $hWnd), $LOG_LEVEL_DEBUG)
+   Log_('CheckProphWindowOpen: ' & $checksumActual, $LOG_LEVEL_DEBUG)
+
    Return $CHECKSUM = $checksumActual Or $CHECKSUM_HOVER = $checksumActual Or $CHECKSUM_DISABLED = $checksumActual
 EndFunc
 
 Func CheckProphecyExist()
-   $left = $PropheciesPositions[0][0]
-   $top = $PropheciesPositions[0][1]
+   $left = $PropheciesPositions[6][0]
+   $top = $PropheciesPositions[6][1]
    $right = $left + 3
    $bottom = $top + 1
-   Const $CHECKSUM = 1701578884
+   Const $CHECKSUM = 1554450471
 
    $checksumActual = PixelChecksum($left, $top, $right, $bottom, 1, $hWnd)
    Log_('CheckProphecyExist: ' & $checksumActual, $LOG_LEVEL_DEBUG)
@@ -293,8 +304,8 @@ Func PressSeek()
 EndFunc
 
 Func PressSeal()
-   $x = Random($ProphecySealButtonPositions[0][0], $ProphecySealButtonPositions[1][0], 1)
-   $y = Random($ProphecySealButtonPositions[0][1], $ProphecySealButtonPositions[1][1], 1)
+   $x = Random($ProphecySealButtonPositions[2][0], $ProphecySealButtonPositions[3][0], 1)
+   $y = Random($ProphecySealButtonPositions[2][1], $ProphecySealButtonPositions[3][1], 1)
    $speed = Random(10, 20, 1)
 
    Log_('PressSeal')
@@ -398,10 +409,13 @@ Func ClickNavali()
    Const $NAVALI_DIALOG_PROPH_WIDTH = 180
    Const $NAVALI_DIALOG_PROPH_POS_Y = 183
 
+   Send('{CTRLDOWN}')
    MouseClick($MOUSE_CLICK_LEFT, $g_aNavaliPos[0], $g_aNavaliPos[1])
-   Sleep(150)
-   MouseClick($MOUSE_CLICK_LEFT, Random($NAVALI_DIALOG_PROPH_POS_X, $NAVALI_DIALOG_PROPH_POS_X + $NAVALI_DIALOG_PROPH_WIDTH, 1), $NAVALI_DIALOG_PROPH_POS_Y)
-   Sleep(150)
+   Send('{CTRLUP}')
+
+   Sleep(250)
+   ;MouseClick($MOUSE_CLICK_LEFT, Random($NAVALI_DIALOG_PROPH_POS_X, $NAVALI_DIALOG_PROPH_POS_X + $NAVALI_DIALOG_PROPH_WIDTH, 1), $NAVALI_DIALOG_PROPH_POS_Y)
+   ;Sleep(150)
 EndFunc
 
 Func ClickStash()
