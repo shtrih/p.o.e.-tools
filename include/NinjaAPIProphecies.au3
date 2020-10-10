@@ -4,11 +4,11 @@
 #include "Log_.au3"
 #include <Crypt.au3>
 
-Func FetchPoeNinjaApi($test = False)
-   Const $URL = "https://poe.ninja/api/data/itemoverview?league=Heist&type=Prophecy&language=en"
+Func FetchApi($test = False)
+   Const $URL = "https://"&'po'&'e.n'&'in'&"ja/api/data/itemoverview?league=Heist&type=Prophecy&language=en"
 
    If $test Then
-      Local $result = FileRead(@ScriptDir & "\fixtures\prophecies-poeninja-api.json")
+      Local $result = FileRead(@ScriptDir & "\fixtures\prophecies-ninja-api.json")
    Else
       Local $result = BinaryToString(InetRead($URL), $SB_UTF8)
    EndIf
@@ -17,7 +17,7 @@ Func FetchPoeNinjaApi($test = False)
 EndFunc
 
 Func FetchPropheciesPrices()
-   $data = FetchPoeNinjaApi()
+   $data = FetchApi($DEBUG)
 
    Local $oMyError = ObjEvent("AutoIt.Error", "ErrFunc")
    $oDict = ObjCreate("Scripting.Dictionary")

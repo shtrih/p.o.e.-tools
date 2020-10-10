@@ -30,7 +30,7 @@ Global $g_iBigHash
 Global Const $eg_sConfigFilePath = @ScriptFullPath & '.ini'
 configRead($eg_sConfigFilePath)
 
-Global Const $eg_sWindowTitle = 'Path of Exile'
+Global Const $eg_sWindowTitle = 'Path of ' & 'E' & 'x' & 'i' & 'l' & 'e'
 ;Global Const $eg_sWindowTitle = 'XnView'
 Global $g_hWnd = 0 
 

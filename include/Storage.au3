@@ -17,7 +17,7 @@ Global $COLOR_PROPHECY_SHADE = 4
 Global $COLOR_EMPTY = 0x050505
 Global $COLOR_EMPTY_SHADE = 5
 
-Func InitStorageSettings($borderWidth=2, $cellWidth=50, $cellStartPosX=1269, $cellStartPosY=585, $HorCellCount=12, $VertCellCount=5)
+Func InitStorageSettings($borderWidth, $cellWidth, $cellStartPosX, $cellStartPosY, $HorCellCount, $VertCellCount)
    $g_borderWidth   = $borderWidth
    $g_cellWidth     = $cellWidth
    $g_cellStartPosX = $cellStartPosX

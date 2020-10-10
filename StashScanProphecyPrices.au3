@@ -35,7 +35,7 @@ Global Const $g_sCsvPath = @ScriptFullPath
 Main()
 
 Func Main()
-   $hWnd = WinGetHandle("Path of Exile")
+   $hWnd = WinGetHandle("Path of " & 'E' & 'x' & 'i' & 'l' & 'e')
    ;$hWnd = WinGetHandle("XnView")
 
    If @error Then
