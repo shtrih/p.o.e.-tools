@@ -151,6 +151,12 @@ Func IsStorageVisible()
       Return True
    EndIf
 
+   $pos = PixelSearch($x, $y, $x + 1, $y + 1, 0x3C2217, 2) ; color with not wearable gear
+   If Not @error Then
+      ;LogV($pos[0], $pos[1])
+      Return True
+   EndIf
+
    PixelSearch($x, $y, $x + 1, $y + 1, 0x2a2117, 2) ; empty cell color
    $bResult = Not @error
 

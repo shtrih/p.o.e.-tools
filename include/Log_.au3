@@ -5,6 +5,7 @@
 
 Global Const $LOG_LEVEL_INFO = 'info'
 Global Const $LOG_LEVEL_DEBUG = 'debug'
+Global Const $LOG_LEVEL_ERROR = 'error'
 
 If Not IsDeclared('DEBUG') Then
    Global Const $DEBUG = $CmdLine[0] ? $CmdLine[1] = 'debug' : False
@@ -15,12 +16,17 @@ Func Log_($data, $logLevel = $LOG_LEVEL_INFO)
       Return
    EndIf
 
-   ConsoleWrite(_Now() & ' - ' & '[' & $logLevel & '] ' & $data & @CRLF)
+   $sLogFunction = 'ConsoleWrite'
+   If $logLevel = $LOG_LEVEL_ERROR Then
+      $sLogFunction = 'ConsoleWriteError'
+   EndIf
+
+   Call($sLogFunction, _Now() & ' - ' & '[' & $logLevel & '] ' & $data & @CRLF)
 
    If IsArray($data) Then
       _PrintArrayConsole($data)
       If @error Then
-         ConsoleWrite('Array[' & UBound($data) & ']' & @CRLF)
+         Call($sLogFunction, 'Array[' & UBound($data) & ']' & @CRLF)
       EndIf
    EndIf
 EndFunc
@@ -35,4 +41,8 @@ Func Logv($p1, $p2 = '', $p3 = '', $p4 = '', $p5 = '', $p6 = '', $p7 = '', $p8 =
    Next
 
    Log_($sValue)
+EndFunc
+
+Func LogE($data)
+   Log_($data, $LOG_LEVEL_ERROR)
 EndFunc

@@ -27,6 +27,11 @@ HotKeySet("^o", "Stop")
 Global $hWnd
 Global $isStarted = False
 
+; From FileClose() DOCS: Upon termination, AutoIt automatically closes any files it opened, but calling FileClose() is still a good idea.
+; Yep, it closes automatically. So, don't care of it.
+Global $g_hCsvHwnd
+Global Const $g_sCsvPath = @ScriptFullPath
+
 Main()
 
 Func Main()
@@ -38,9 +43,22 @@ Func Main()
      Exit
    EndIf
 
+   $pos = WinGetPos($hWnd)
+   If @error Then
+      MsgBox($MB_SYSTEMMODAL, "", "An error occurred when trying to retrieve the $windowHeight")
+      Exit
+   EndIf
+
+   Global $g_iWindowOffsetLeft = $pos[0]
+   Global $g_iWindowOffsetTop = $pos[1]
+   Global $g_iWindowWidth = $pos[2]
+   Global $g_iWindowHeight = $pos[3]
+
    Log_(@ScriptName & ' is ready. Press Ctrl+I to start or Ctrl+O to pause!')
 
    $oDictPrices = FetchPropheciesPrices()
+
+   CsvClear(GetCsvPath())
 
    While True
       Sleep(100)
@@ -60,7 +78,7 @@ Func Main()
       EndIf
 
       Local $aStash[0][3]
-      Local $aResult[1][6] = [['Name', 'Title', 'Cell', 'Chaos', 'Exalted', 'Hash']]
+      Local $aResult[0][6]
 
       $isInverted = False
       $iVertMax = $g_vertCount - 1
@@ -99,6 +117,7 @@ Func Main()
                      $iChaos = $aItemPrice[0]
                      $iEx = $aItemPrice[1]
 
+                     Log_('Set item price')
                      ItemSetPrice($iChaos, $sNote, $x, $iSnakeY)
                   Else
                      Logv('Error getting price', VarGetType($aItemPrice), $aItemPrice, $name & $text, $sHash)
@@ -115,7 +134,7 @@ Func Main()
 
                   _ArrayAdd($aResult, $aResultSub)
                   If @error Then
-                     Log_('Error: ' & @error)
+                     LogE('Error: ' & @error)
                   EndIf
                EndIf
             EndIf
@@ -125,9 +144,11 @@ Func Main()
       Beep(100, 100)
       ;_ArrayDisplay($aResult, "Ценность пророчеств", Default,Default,Default, "Название|Описание|Позиция в стеше|Цена (хаос)|Цена (екзоль)|Хеш")
 
-      _FileWriteFromArray(@ScriptFullPath & '.tsv', $aResult, Default, Default, Chr(9)); Tab
-      If @error Then
-         Logv('Error write file: ', @error)
+      ; Not append if user interrupted or error occured
+      If $isStarted Then
+         Log_('Appending CSV...')
+         Local $aHeader[1][6] = [['Name', 'Title', 'Cell', 'Chaos', 'Exalted', 'Hash']]
+         CsvAppend($aResult, $aHeader)
       EndIf
 
       Stop()
@@ -146,24 +167,24 @@ Func SplitProphecyInfo($sItemInfo)
    ;Right-click to add this prophecy to your character.
    ;--------
    ;Note: ~b/o 1 chaos
-   $info = StringSplit($sItemInfo, @LF)
+   $aInfo = StringSplit($sItemInfo, @LF)
    If @error Then
       Return SetError(1, 0, '')
    EndIf
 
-   $iSize = UBound($info)
+   $iSize = UBound($aInfo)
    If $iSize < 8 Then
       Return SetError(1, 0, '')
    EndIf
 
    $sNote = ''
-   If $iSize >= 11 And StringRegExp($info[10], 'Note:') Then
-      $sNote = StringRegExpReplace($info[10], '(Note:\s|\r\n|\n|\x0b|\f|\r|\x85)', '')
+   If StringRegExp($aInfo[$iSize-2], 'Note:') Then ; -2 since it has empty string on last item
+      $sNote = StringRegExpReplace($aInfo[$iSize-2], '(Note:\s|\r\n|\n|\x0b|\f|\r|\x85)', '')
    EndIf
 
    Local $result[3] = [ _
-      StringRegExpReplace($info[2], '(\r\n|\n|\x0b|\f|\r|\x85)', ''), _
-      StringRegExpReplace($info[6], '((\r\n|\n|\x0b|\f|\r|\x85)|\s+$)', ''), _
+      StringRegExpReplace($aInfo[2], '(\r\n|\n|\x0b|\f|\r|\x85)', ''), _
+      StringRegExpReplace($aInfo[6], '((\r\n|\n|\x0b|\f|\r|\x85)|\s+$)', ''), _
       $sNote _
    ]
 
@@ -174,7 +195,11 @@ Func Start($state = True)
    $state = IsDeclared('state') ? $state : True ; Because HotKeySet ignore default values of arguments too!
 
    Beep($isStarted ? 250 : 200, 250)
-   Sleep(2000)
+   If $state Then
+      ; Move out cursor to neutral zone
+      MouseMove($g_iWindowWidth / 2 + $g_iWindowOffsetLeft, $g_iWindowHeight / 2 + $g_iWindowOffsetTop)
+      Sleep(2000)
+   EndIf
 
    $inventoryNeedRescan = True
    $isStarted = $state
@@ -182,9 +207,9 @@ Func Start($state = True)
 EndFunc
 
 Func Stop($reason = '')
-   $reason = IsDeclared('reason') ? $reason : 'User command' ; Because HotKeySet ignore default values of arguments too!
+   $reason = IsDeclared('reason') ? $reason : 'User interrupt' ; Because HotKeySet ignore default values of arguments too!
 
-   If $reason Then Log_($reason)
+   If $reason Then LogE($reason)
    Log_('Stopping the script...')
 
    Start(False)
@@ -194,14 +219,16 @@ EndFunc
 Func ItemSetPrice($fPrice, $sNote, $cellX, $cellY)
    $sNewNote = '~b/o ' & Round($fPrice, 1) & ' chaos'
 
-   If $sNote And $sNote = $sNewNote Then
+   If $sNote = $sNewNote Then
+      Log_('Skip SetPrice', $LOG_LEVEL_DEBUG)
       Return
    EndIf
 
    MouseClick($MOUSE_CLICK_RIGHT)
 
    If $sNote Then
-      ; по х сдвигаемся на 3 ячейки влево, если больше 3 столбца
+      Log_('Rewrite exist price', $LOG_LEVEL_DEBUG)
+
       $cellY += 1 ; вниз от текущей ячейки
       $pos = CellNum2PixelPos($cellX, $cellY)
       $priceSelectorOffsetX = $pos[0] > 175 ? -150 : 0 ; позиция селекта
@@ -226,4 +253,70 @@ Func ItemSetPrice($fPrice, $sNote, $cellX, $cellY)
    Send($sNewNote, 1)
    Sleep(100)
    Send('{ENTER}')
+EndFunc
+
+Func GetCsvPath()
+   Return $g_sCsvPath & '.tsv'
+EndFunc
+
+Func CsvFileOpen($sFilePath)
+   $hCsvHwnd = FileOpen($sFilePath, $FO_APPEND)
+   If @error Then
+      SetError(@error)
+
+      Return False
+   EndIf
+
+   Return $hCsvHwnd
+EndFunc
+
+Func CsvClear($sFilePath)
+   $hFileOpen = FileOpen($sFilePath, $FO_OVERWRITE)
+   FileWrite($hFileOpen, '')
+   FileClose($hFileOpen)
+EndFunc
+
+Func CsvAppend(ByRef $aSource, ByRef $aHeader, $sFilePath = GetCsvPath())
+   If Not IsHwnd($g_hCsvHwnd) Then
+      $g_hCsvHwnd = CsvFileOpen($sFilePath)
+      If @error Then
+         $sError = 'An error occurred while opening the file.'
+         LogE(StringFormat('Error CSV write (%s): %s', $sFilePath, $sError))
+
+         Return False
+      EndIf
+   EndIf
+
+   _ArrayConcatenate($aHeader, $aSource)
+   If @error Then
+      Local $aErrorDesc[7]
+      $aErrorDesc[1] = '$aArrayTarget is not an array'
+      $aErrorDesc[2] = '$aArraySource is not an array'
+      $aErrorDesc[3] = '$aArrayTarget is not a 1D or 2D array'
+      $aErrorDesc[4] = '$aArrayTarget and $aArraySource 1D/2D mismatch'
+      $aErrorDesc[5] = '$aArrayTarget and $aArraySource column number mismatch (2D only)'
+      $aErrorDesc[6] = '$iStart outside array bounds'
+
+      $sError = $aErrorDesc[@error]
+      LogE(StringFormat('Error SaveCsv(%s): %s', $sFilePath, $sError))
+
+      Return False
+   EndIf
+
+   _FileWriteFromArray($g_hCsvHwnd, $aHeader, Default, Default, Chr(9)); Tab
+   If @error Then
+      Local $aErrorDesc[6]
+      $aErrorDesc[1] = 'Error opening specified file'
+      $aErrorDesc[2] = '$aArray is not an array'
+      $aErrorDesc[3] = 'Error writing to file'
+      $aErrorDesc[4] = '$aArray is not a 1D or 2D array'
+      $aErrorDesc[5] = 'Start index is greater than the $iUbound parameter'
+
+      $sError = $aErrorDesc[@error]
+      LogE(StringFormat('Error SaveCsv(%s): %s', $sFilePath, $sError))
+
+      Return False
+   EndIf
+
+   Return True
 EndFunc
