@@ -12,14 +12,17 @@
 
 #include <AutoItConstants.au3>
 #include <MsgBoxConstants.au3>
+#include <StringConstants.au3>
 #include <Array.au3>
 #include <Crypt.au3>
 #include <File.au3>
+#include <Date.au3>
 
 #include "include/Stash.au3"
 #include "include/StashQuad.au3"
 #include "include/Log_.au3"
 #include "include/NinjaAPIProphecies.au3"
+#include "include/CSVPrefilledPrices.au3"
 
 HotKeySet("^i", "Start")
 HotKeySet("^o", "Stop")
@@ -30,7 +33,6 @@ Global $isStarted = False
 ; From FileClose() DOCS: Upon termination, AutoIt automatically closes any files it opened, but calling FileClose() is still a good idea.
 ; Yep, it closes automatically. So, don't care of it.
 Global $g_hCsvHwnd
-Global Const $g_sCsvPath = @ScriptFullPath
 
 Main()
 
@@ -57,8 +59,10 @@ Func Main()
    Log_(@ScriptName & ' is ready. Press Ctrl+I to start or Ctrl+O to pause!')
 
    $oDictPrices = FetchPropheciesPrices()
+   ;CsvDumpProphPrices(@ScriptDir & '\ProphPrices\_prefilled-prices.tsv', $oDictPrices)
+   $oDictPrefilledPrices = GetPrefilledPricesDict(@ScriptDir & '\ProphPrices\_prefilled-prices.tsv')
 
-   CsvClear(GetCsvPath())
+   ;CsvClear(GetCsvPath())
 
    While True
       Sleep(100)
@@ -112,23 +116,28 @@ Func Main()
                   $sHash = String(_Crypt_HashData($name & $text, $CALG_MD5))
 
                   $aItemPrice = $oDictPrices.item($sHash)
-                  Local $iChaos = '-', $iEx = '-'
+                  Local $fChaos = '-', $fEx = '-'
                   If IsArray($aItemPrice) Then
-                     $iChaos = $aItemPrice[0]
-                     $iEx = $aItemPrice[1]
-
-                     Log_('Set item price')
-                     ItemSetPrice($iChaos, $sNote, $x, $iSnakeY)
+                     $fChaos = $aItemPrice[0]
+                     $fEx = $aItemPrice[1]
                   Else
                      Logv('Error getting price', VarGetType($aItemPrice), $aItemPrice, $name & $text, $sHash)
+                  EndIf
+
+                  $sPrefilledPrice = $oDictPrefilledPrices.item($sHash)
+                  $fActualPrice = ApplyPrefilledPrice($sPrefilledPrice, $fChaos)
+
+                  If IsNumber($fActualPrice) Then
+                     Log_('Set item price')
+                     ItemSetPrice($fActualPrice, $sNote, $x, $iSnakeY)
                   EndIf
 
                   Local $aResultSub[1][6] = [[ _
                      $name, _
                      $text, _
                      $x & 'x' & $iSnakeY, _
-                     Round($iChaos, 1), _
-                     $iEx, _
+                     Round($fChaos, 1), _
+                     $fEx, _
                      $sHash _
                   ]]
 
@@ -256,7 +265,7 @@ Func ItemSetPrice($fPrice, $sNote, $cellX, $cellY)
 EndFunc
 
 Func GetCsvPath()
-   Return $g_sCsvPath & '.tsv'
+   Return @ScriptDir & '\ProphPrices\prices-' & StringFormat('%s-%s-%s_%s-%s.tsv', @YEAR, @MON, @MDAY, @HOUR, @MIN)
 EndFunc
 
 Func CsvFileOpen($sFilePath)
@@ -281,7 +290,7 @@ Func CsvAppend(ByRef $aSource, ByRef $aHeader, $sFilePath = GetCsvPath())
       $g_hCsvHwnd = CsvFileOpen($sFilePath)
       If @error Then
          $sError = 'An error occurred while opening the file.'
-         LogE(StringFormat('Error CSV write (%s): %s', $sFilePath, $sError))
+         LogE(StringFormat('Error CsvAppend(%s): %s', $sFilePath, $sError))
 
          Return False
       EndIf
@@ -298,12 +307,12 @@ Func CsvAppend(ByRef $aSource, ByRef $aHeader, $sFilePath = GetCsvPath())
       $aErrorDesc[6] = '$iStart outside array bounds'
 
       $sError = $aErrorDesc[@error]
-      LogE(StringFormat('Error SaveCsv(%s): %s', $sFilePath, $sError))
+      LogE(StringFormat('Error CsvAppend(%s): %s', $sFilePath, $sError))
 
       Return False
    EndIf
 
-   _FileWriteFromArray($g_hCsvHwnd, $aHeader, Default, Default, Chr(9)); Tab
+   _FileWriteFromArray($g_hCsvHwnd, $aHeader, Default, Default, @TAB)
    If @error Then
       Local $aErrorDesc[6]
       $aErrorDesc[1] = 'Error opening specified file'

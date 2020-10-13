@@ -41,7 +41,7 @@ Func FetchPropheciesPrices()
       $exaltedValue = json_get($object, '.lines[' & $i & '].exaltedValue')
       $prophecyText = json_get($object, '.lines[' & $i & '].prophecyText')
 
-      Local $arr[3] = [$chaosValue, $exaltedValue, $name]
+      Local $arr[4] = [$chaosValue, $exaltedValue, $name, $prophecyText]
       $sHash = String(_Crypt_HashData($name & $prophecyText, $CALG_MD5))
 
       $oDict.add($sHash, $arr)
@@ -53,6 +53,47 @@ Func FetchPropheciesPrices()
    WEnd
 
    Return $oDict
+EndFunc
+
+Func CsvDumpProphPrices($sFilePath, $oDict)
+   Local $aResult[1][5] = [['Name', 'Title', 'Chaos', 'Is Deleted', 'Hash']]
+
+   For $sKey in $oDict.keys
+      $aItem = $oDict.Item($sKey)
+      Local $aResultSub[1][5] = [[$aItem[2], $aItem[3], $aItem[0], '', $sKey]]
+
+      _ArrayAdd($aResult, $aResultSub)
+      If @error Then
+         Local $aErrorDesc[7]
+         $aErrorDesc[1] = '$aArray is not an array'
+         $aErrorDesc[2] = '$aArray is not a 1 or 2 dimensional array'
+         $aErrorDesc[3] = '$vValue has too many columns to fit into $aArray'
+         $aErrorDesc[4] = '$iStart outside array bounds (2D only)'
+         $aErrorDesc[5] = 'Number of dimensions for $avArray and $vValue arrays do not match'
+
+         $sError = $aErrorDesc[@error]
+         LogE(StringFormat('Error CsvDumpProphPrices(%s): %s', $sFilePath, $sError))
+
+         Return False
+      EndIf
+   Next
+
+   _FileWriteFromArray($sFilePath, $aResult, Default, Default, @TAB)
+   If @error Then
+      Local $aErrorDesc[6]
+      $aErrorDesc[1] = 'Error opening specified file'
+      $aErrorDesc[2] = '$aArray is not an array'
+      $aErrorDesc[3] = 'Error writing to file'
+      $aErrorDesc[4] = '$aArray is not a 1D or 2D array'
+      $aErrorDesc[5] = 'Start index is greater than the $iUbound parameter'
+
+      $sError = $aErrorDesc[@error]
+      LogE(StringFormat('Error CsvDumpProphPrices(%s): %s', $sFilePath, $sError))
+
+      Return False
+   EndIf
+
+   Return True
 EndFunc
 
 Func ErrFunc($oError)
