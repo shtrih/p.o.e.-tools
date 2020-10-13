@@ -14,11 +14,14 @@
 #include <MsgBoxConstants.au3>
 #include <Date.au3>
 #include <Misc.au3>
+#include <Crypt.au3>
 
 #include "include/Inventory.au3"
 #include "include/Stash.au3"
 #include "include/StashQuad.au3"
 #include "include/Log_.au3"
+#include "include/CSVPrefilledPrices.au3"
+#include "include/CSV.au3"
 
 HotKeySet("^k", "Start")
 HotKeySet("^l", "Stop")
@@ -26,6 +29,12 @@ HotKeySet("^l", "Stop")
 Global $hWnd
 Global $g_isStarted = False
 Global $g_isRestarted = True
+Global $g_oDictNeededList
+Global $g_sCsvDeletedPath
+
+; From FileClose() DOCS: Upon termination, AutoIt automatically closes any files it opened, but calling FileClose() is still a good idea.
+; Yep, it closes automatically. So, don't care of it.
+Global $g_hCsvHwnd
 
 Global Const $PropheciesPositions = [ [320, 256], [168,  315], [458, 315], [132, 480], [492, 480], [224, 640], [408, 640] ]
 Global Const $ProphecySeekButtonPositions = [ [298, 770], [365, 787] ]
@@ -72,6 +81,9 @@ Check Prophecy Exists
    No:
     Confirm Prophecy Sealing
     Put item to inventory
+    Check if need to destroy item
+     Yes:
+      Destroy (with confirm)
  No:
   Click Seek Button
   Check "not enough coins" dialog
@@ -95,6 +107,10 @@ Func Main()
    Log_(@ScriptName & ' is ready. Open Navali Prophecies dialog and press Ctrl+K to start or Ctrl+L to pause!')
 
    Local $aInventory[0]
+
+   $g_oDictNeededList = GetPrefilledPricesDict(@ScriptDir & '\ProphPrices\_prefilled-prices.tsv')
+   $g_sCsvDeletedPath = GetCsvDeletedPath()
+   $bCsvHeaderAdded = False
 
    While True
       WinWaitActive($hWnd)
@@ -219,12 +235,56 @@ Func Main()
             ContinueLoop
          EndIf
 
-         StoragePutItem($aInventory)
+         Log_('Put into inventory')
+         $iInventoryKey = StoragePutItem($aInventory)
          If @error Then
             Stop('Inventory is full.')
             ContinueLoop
          EndIf
 
+         Sleep(100)
+         $sItemInfo = GetItemInfo()
+         $aInfo = SplitProphecyInfo($sItemInfo)
+         If @error Then
+            ; place is occupied
+            If IsNumber($iInventoryKey) Then
+               _ArrayDelete($aInventory, $iInventoryKey)
+            EndIf
+
+            LogE('Error in SplitProphecyInfo()')
+            ContinueLoop
+         EndIf
+
+         $sHash = String(_Crypt_HashData($aInfo[0] & $aInfo[1], $CALG_MD5))
+
+         If $g_oDictNeededList.Exists($sHash) Then
+            ; place is occupied
+            If IsNumber($iInventoryKey) Then
+               _ArrayDelete($aInventory, $iInventoryKey)
+            EndIf
+         Else
+            Log_('Destroing item...')
+
+            Local $aHeader[0][3], $aRow[1][3] = [[$aInfo[0], $aInfo[1], $sHash]]
+            If Not $bCsvHeaderAdded Then
+                Local $aHeader[1][3] = [['Name', 'Title', 'Hash']]
+                $bCsvHeaderAdded = True
+            EndIf
+
+            CsvAppend($aRow, $aHeader, $g_sCsvDeletedPath, $g_hCsvHwnd)
+
+            MouseClick($MOUSE_CLICK_LEFT)
+            Sleep(50)
+            MouseClick($MOUSE_CLICK_LEFT, Random(1230, 1244, 1), MouseGetPos(1) + Random(0, 10, 1))
+            Sleep(120)
+
+            ; confirm dialog
+            If PixelGetColor(1170, 570) = 0x612f07 Then
+               Send('{ENTER}')
+               ;Send('{ESC}')
+               Sleep(10)
+            EndIf
+         EndIf
          ; Move cursor out of inventory
          ;Log_('Move cursor out of inventory (1)')
          ;MouseMove(Random(650, 1200, 1), Random(400, 800, 1))
@@ -483,4 +543,8 @@ Func StorageCtrlClickItem(ByRef $aInventory)
    If $isError Then
       SetError($ERROR_INTERRUPT)
    EndIf
+EndFunc
+
+Func GetCsvDeletedPath()
+   Return @ScriptDir & '\ProphDeleted\' & StringFormat('%s-%s-%s_%s-%s.tsv', @YEAR, @MON, @MDAY, @HOUR, @MIN)
 EndFunc

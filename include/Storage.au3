@@ -133,12 +133,14 @@ Func StoragePutItem(ByRef $inventory)
       Return SetError(1, 0, 0)
    EndIf
 
-   $invKey = $cell[0]
+   ;$invKey = $cell[0]
    $cellPos = $cell[1]
 
-   _ArrayDelete($inventory, $invKey)
+   ;_ArrayDelete($inventory, $invKey)
 
    StorageClickItem($cellPos[0], $cellPos[1])
+
+   Return $cell[0]
 EndFunc
 
 Func IsStorageVisible()
@@ -183,14 +185,21 @@ Func GetItemInfo($bPushCtrlC = True)
    EndIf
 
    $sItemInfo = ClipGet()
-;Logv('Item: ', $numX, $numY, $sItemInfo)
    If @error Then
+      Local $aErrorDesc[5]
+      $aErrorDesc[1] = 'clipboard is empty'
+      $aErrorDesc[2] = 'clipboard contains a non-text entry.'
+      $aErrorDesc[3] = 'cannot access the clipboard.'
+      $aErrorDesc[4] = 'cannot access the clipboard.'
+
+      LogE(StringFormat('Failed to get clipboard: %s', $aErrorDesc[@error]))
       Return SetError(@error, 0, '')
    EndIf
+;Logv('Item: ', $numX, $numY, $sItemInfo)
 
    ;Clean buffer
    $iCleared = ClipPut('')
-   If Not $iCleared Then Log_('[!] Failed to clear clipboard.')
+   If Not $iCleared Then LogE('Failed to clear clipboard.')
 
    Return $sItemInfo
 EndFunc
@@ -225,6 +234,41 @@ Func StorageScanItemsInfo($checkColor, $shadeVariation, ByRef $bContinue)
    Next
 
    Send('{CTRLUP}')
+
+   Return $result
+EndFunc
+
+Func SplitProphecyInfo($sItemInfo)
+   ;Rarity: Normal
+   ;The Karui Rebellion
+   ;--------
+   ;Thaumaturgy and faith clash among giant ruins; a recreation of a long-gone rebellion.
+   ;--------
+   ;You will defeat the Gemling Legionnaires while holding Karui Ward.
+   ;--------
+   ;Right-click to add this prophecy to your character.
+   ;--------
+   ;Note: ~b/o 1 chaos
+   $aInfo = StringSplit($sItemInfo, @LF)
+   If @error Then
+      Return SetError(1, 0, '')
+   EndIf
+
+   $iSize = UBound($aInfo)
+   If $iSize < 8 Then
+      Return SetError(1, 0, '')
+   EndIf
+
+   $sNote = ''
+   If StringRegExp($aInfo[$iSize-2], 'Note:') Then ; -2 since it has empty string on last item
+      $sNote = StringRegExpReplace($aInfo[$iSize-2], '(Note:\s|\r\n|\n|\x0b|\f|\r|\x85)', '')
+   EndIf
+
+   Local $result[3] = [ _
+      StringRegExpReplace($aInfo[2], '(\r\n|\n|\x0b|\f|\r|\x85)', ''), _
+      StringRegExpReplace($aInfo[6], '((\r\n|\n|\x0b|\f|\r|\x85)|\s+$)', ''), _
+      $sNote _
+   ]
 
    Return $result
 EndFunc

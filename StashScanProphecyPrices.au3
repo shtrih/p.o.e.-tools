@@ -23,6 +23,7 @@
 #include "include/Log_.au3"
 #include "include/NinjaAPIProphecies.au3"
 #include "include/CSVPrefilledPrices.au3"
+#include "include/CSV.au3"
 
 HotKeySet("^i", "Start")
 HotKeySet("^o", "Stop")
@@ -63,6 +64,8 @@ Func Main()
    $oDictPrefilledPrices = GetPrefilledPricesDict(@ScriptDir & '\ProphPrices\_prefilled-prices.tsv')
 
    ;CsvClear(GetCsvPath())
+   $sCsvPath = GetCsvPath()
+   $bCsvHeaderAdded = False
 
    While True
       Sleep(100)
@@ -156,48 +159,19 @@ Func Main()
       ; Not append if user interrupted or error occured
       If $isStarted Then
          Log_('Appending CSV...')
-         Local $aHeader[1][6] = [['Name', 'Title', 'Cell', 'Chaos', 'Exalted', 'Hash']]
-         CsvAppend($aResult, $aHeader)
+
+         Local $aHeader[0][6]
+         If Not $bCsvHeaderAdded Then
+             Local $aHeader[1][6] = [['Name', 'Title', 'Cell', 'Chaos', 'Exalted', 'Hash']]
+             $bCsvHeaderAdded = True
+         EndIf
+
+         CsvAppend($aResult, $aHeader, $sCsvPath, $g_hCsvHwnd)
       EndIf
 
       Stop()
       ;ExitLoop
    WEnd
-EndFunc
-
-Func SplitProphecyInfo($sItemInfo)
-   ;Rarity: Normal
-   ;The Karui Rebellion
-   ;--------
-   ;Thaumaturgy and faith clash among giant ruins; a recreation of a long-gone rebellion.
-   ;--------
-   ;You will defeat the Gemling Legionnaires while holding Karui Ward.
-   ;--------
-   ;Right-click to add this prophecy to your character.
-   ;--------
-   ;Note: ~b/o 1 chaos
-   $aInfo = StringSplit($sItemInfo, @LF)
-   If @error Then
-      Return SetError(1, 0, '')
-   EndIf
-
-   $iSize = UBound($aInfo)
-   If $iSize < 8 Then
-      Return SetError(1, 0, '')
-   EndIf
-
-   $sNote = ''
-   If StringRegExp($aInfo[$iSize-2], 'Note:') Then ; -2 since it has empty string on last item
-      $sNote = StringRegExpReplace($aInfo[$iSize-2], '(Note:\s|\r\n|\n|\x0b|\f|\r|\x85)', '')
-   EndIf
-
-   Local $result[3] = [ _
-      StringRegExpReplace($aInfo[2], '(\r\n|\n|\x0b|\f|\r|\x85)', ''), _
-      StringRegExpReplace($aInfo[6], '((\r\n|\n|\x0b|\f|\r|\x85)|\s+$)', ''), _
-      $sNote _
-   ]
-
-   Return $result
 EndFunc
 
 Func Start($state = True)
@@ -266,66 +240,4 @@ EndFunc
 
 Func GetCsvPath()
    Return @ScriptDir & '\ProphPrices\prices-' & StringFormat('%s-%s-%s_%s-%s.tsv', @YEAR, @MON, @MDAY, @HOUR, @MIN)
-EndFunc
-
-Func CsvFileOpen($sFilePath)
-   $hCsvHwnd = FileOpen($sFilePath, $FO_APPEND)
-   If @error Then
-      SetError(@error)
-
-      Return False
-   EndIf
-
-   Return $hCsvHwnd
-EndFunc
-
-Func CsvClear($sFilePath)
-   $hFileOpen = FileOpen($sFilePath, $FO_OVERWRITE)
-   FileWrite($hFileOpen, '')
-   FileClose($hFileOpen)
-EndFunc
-
-Func CsvAppend(ByRef $aSource, ByRef $aHeader, $sFilePath = GetCsvPath())
-   If Not IsHwnd($g_hCsvHwnd) Then
-      $g_hCsvHwnd = CsvFileOpen($sFilePath)
-      If @error Then
-         $sError = 'An error occurred while opening the file.'
-         LogE(StringFormat('Error CsvAppend(%s): %s', $sFilePath, $sError))
-
-         Return False
-      EndIf
-   EndIf
-
-   _ArrayConcatenate($aHeader, $aSource)
-   If @error Then
-      Local $aErrorDesc[7]
-      $aErrorDesc[1] = '$aArrayTarget is not an array'
-      $aErrorDesc[2] = '$aArraySource is not an array'
-      $aErrorDesc[3] = '$aArrayTarget is not a 1D or 2D array'
-      $aErrorDesc[4] = '$aArrayTarget and $aArraySource 1D/2D mismatch'
-      $aErrorDesc[5] = '$aArrayTarget and $aArraySource column number mismatch (2D only)'
-      $aErrorDesc[6] = '$iStart outside array bounds'
-
-      $sError = $aErrorDesc[@error]
-      LogE(StringFormat('Error CsvAppend(%s): %s', $sFilePath, $sError))
-
-      Return False
-   EndIf
-
-   _FileWriteFromArray($g_hCsvHwnd, $aHeader, Default, Default, @TAB)
-   If @error Then
-      Local $aErrorDesc[6]
-      $aErrorDesc[1] = 'Error opening specified file'
-      $aErrorDesc[2] = '$aArray is not an array'
-      $aErrorDesc[3] = 'Error writing to file'
-      $aErrorDesc[4] = '$aArray is not a 1D or 2D array'
-      $aErrorDesc[5] = 'Start index is greater than the $iUbound parameter'
-
-      $sError = $aErrorDesc[@error]
-      LogE(StringFormat('Error SaveCsv(%s): %s', $sFilePath, $sError))
-
-      Return False
-   EndIf
-
-   Return True
 EndFunc
