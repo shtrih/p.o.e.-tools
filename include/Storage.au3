@@ -179,27 +179,35 @@ Func CellMove($numX, $numY)
 EndFunc
 
 Func GetItemInfo($bPushCtrlC = True)
-   If $bPushCtrlC Then
-      Send('^c')
-      Sleep(200)
-   EndIf
+   $i = 2
+   Do
+      If $bPushCtrlC Then
+         Send('^c')
+         Sleep(200)
+      EndIf
 
-   $sItemInfo = ClipGet()
-   If @error Then
-      Local $aErrorDesc[5]
-      $aErrorDesc[1] = 'clipboard is empty'
-      $aErrorDesc[2] = 'clipboard contains a non-text entry.'
-      $aErrorDesc[3] = 'cannot access the clipboard.'
-      $aErrorDesc[4] = 'cannot access the clipboard.'
+      $error = 0
+      $sItemInfo = ClipGet()
+      If @error Then
+         $error = @error
+         Local $aErrorDesc[5]
+         $aErrorDesc[1] = 'clipboard is empty'
+         $aErrorDesc[2] = 'clipboard contains a non-text entry.'
+         $aErrorDesc[3] = 'cannot access the clipboard.'
+         $aErrorDesc[4] = 'cannot access the clipboard.'
 
-      LogE(StringFormat('Failed to get clipboard: %s', $aErrorDesc[@error]))
-      Return SetError(@error, 0, '')
-   EndIf
+         LogE(StringFormat('Failed to get clipboard: %s', $aErrorDesc[@error]))
+      EndIf
+
+      $i -= 1
+   Until $i <= 0 Or Not $error
 ;Logv('Item: ', $numX, $numY, $sItemInfo)
 
    ;Clean buffer
    $iCleared = ClipPut('')
    If Not $iCleared Then LogE('Failed to clear clipboard.')
+
+   If $error Then Return SetError($error, 0, '')
 
    Return $sItemInfo
 EndFunc

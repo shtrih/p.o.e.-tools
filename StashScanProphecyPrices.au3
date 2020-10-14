@@ -67,6 +67,9 @@ Func Main()
    $sCsvPath = GetCsvPath()
    $bCsvHeaderAdded = False
 
+   Local $aLatestPos[2] = [0, 0]
+   $bLatestResuming = False
+
    While True
       Sleep(100)
       WinWaitActive($hWnd)
@@ -88,13 +91,36 @@ Func Main()
       Local $aResult[0][6]
 
       $isInverted = False
+      $iHorMax = $g_horCount - 1
       $iVertMax = $g_vertCount - 1
 
-      For $x = 0 to ($g_horCount - 1)
+      If ($aLatestPos[0] > 0 Or $aLatestPos[1] > 0) And ($aLatestPos[0] < $iHorMax Or $aLatestPos[1] > 0) Then
+         $sPos = StringFormat(' from pos [%s, %s]', $aLatestPos[0], $aLatestPos[1])
+         $iResult = MsgBox($MB_OKCANCEL, 'Do you want to resume scanning?', 'Do you want to resume scanning' & $sPos)
+
+         If $iResult = $IDCANCEL Then
+            $aLatestPos[0] = 0
+            $aLatestPos[1] = 0
+         EndIf
+
+         If $iResult = $IDOK Then
+            $bLatestResuming = True
+            Log_('Resume scanning' & $sPos)
+         EndIf
+      EndIf
+
+      For $x = $aLatestPos[0] to $iHorMax
          $isInverted = Mod($x, 2) = 0 ? False : True
 
-         For $y = 0 to $iVertMax
+         For $y = $aLatestPos[1] to $iVertMax
+            If $bLatestResuming Then
+               $aLatestPos[1] = 0
+               $bLatestResuming = False
+            EndIf
             If Not $isStarted Then
+               $aLatestPos[0] = $x
+               $aLatestPos[1] = $y
+
                ExitLoop 2
             EndIf
 
@@ -131,7 +157,7 @@ Func Main()
                   $fActualPrice = ApplyPrefilledPrice($sPrefilledPrice, $fChaos)
 
                   If IsNumber($fActualPrice) Then
-                     Log_('Set item price')
+                     Log_('Set item price', $LOG_LEVEL_DEBUG)
                      ItemSetPrice($fActualPrice, $sNote, $x, $iSnakeY)
                   EndIf
 
@@ -160,11 +186,11 @@ Func Main()
       If $isStarted Then
          Log_('Appending CSV...')
 
-         Local $aHeader[0][6]
-         If Not $bCsvHeaderAdded Then
+         ;Local $aHeader[0][6]
+         ;If Not $bCsvHeaderAdded Then
              Local $aHeader[1][6] = [['Name', 'Title', 'Cell', 'Chaos', 'Exalted', 'Hash']]
-             $bCsvHeaderAdded = True
-         EndIf
+         ;    $bCsvHeaderAdded = True
+         ;EndIf
 
          CsvAppend($aResult, $aHeader, $sCsvPath, $g_hCsvHwnd)
       EndIf
