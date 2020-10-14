@@ -68,6 +68,7 @@ Func Main()
    $bCsvHeaderAdded = False
 
    Local $aLatestPos[2] = [0, 0]
+   Local $aLatestResult
    $bLatestResuming = False
 
    While True
@@ -101,12 +102,16 @@ Func Main()
          If $iResult = $IDCANCEL Then
             $aLatestPos[0] = 0
             $aLatestPos[1] = 0
+            $aLatestResult = null
+            Log_('Previous scan data is discarded')
          EndIf
 
          If $iResult = $IDOK Then
             $bLatestResuming = True
             Log_('Resume scanning' & $sPos)
          EndIf
+
+         Sleep(100)
       EndIf
 
       For $x = $aLatestPos[0] to $iHorMax
@@ -120,6 +125,24 @@ Func Main()
             If Not $isStarted Then
                $aLatestPos[0] = $x
                $aLatestPos[1] = $y
+
+               If IsArray($aLatestResult) Then
+                  _ArrayConcatenate($aLatestResult, $aResult)
+                  If @error Then
+                     Local $aErrorDesc[7]
+                     $aErrorDesc[1] = '$aArrayTarget is not an array'
+                     $aErrorDesc[2] = '$aArraySource is not an array'
+                     $aErrorDesc[3] = '$aArrayTarget is not a 1D or 2D array'
+                     $aErrorDesc[4] = '$aArrayTarget and $aArraySource 1D/2D mismatch'
+                     $aErrorDesc[5] = '$aArrayTarget and $aArraySource column number mismatch (2D only)'
+                     $aErrorDesc[6] = '$iStart outside array bounds'
+
+                     $sError = $aErrorDesc[@error]
+                     LogE(StringFormat('Error $aResult concat: %s', $sError))
+                  EndIf
+               Else
+                  $aLatestResult = $aResult
+               EndIf
 
                ExitLoop 2
             EndIf
@@ -191,6 +214,24 @@ Func Main()
              Local $aHeader[1][6] = [['Name', 'Title', 'Cell', 'Chaos', 'Exalted', 'Hash']]
          ;    $bCsvHeaderAdded = True
          ;EndIf
+
+         If IsArray($aLatestResult) Then
+            _ArrayConcatenate($aResult, $aLatestResult)
+            If @error Then
+               Local $aErrorDesc[7]
+               $aErrorDesc[1] = '$aArrayTarget is not an array'
+               $aErrorDesc[2] = '$aArraySource is not an array'
+               $aErrorDesc[3] = '$aArrayTarget is not a 1D or 2D array'
+               $aErrorDesc[4] = '$aArrayTarget and $aArraySource 1D/2D mismatch'
+               $aErrorDesc[5] = '$aArrayTarget and $aArraySource column number mismatch (2D only)'
+               $aErrorDesc[6] = '$iStart outside array bounds'
+
+               $sError = $aErrorDesc[@error]
+               LogE(StringFormat('Error $aLatestResult concat: %s', $sError))
+            EndIf
+
+            $aLatestResult = null
+         EndIf
 
          CsvAppend($aResult, $aHeader, $sCsvPath, $g_hCsvHwnd)
       EndIf
