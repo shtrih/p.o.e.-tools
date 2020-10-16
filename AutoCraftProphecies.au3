@@ -104,6 +104,17 @@ Func Main()
      Exit
    EndIf
 
+   $pos = WinGetPos($hWnd)
+   If @error Then
+      MsgBox($MB_SYSTEMMODAL, "", "An error occurred when trying to retrieve the $windowHeight")
+      Exit
+   EndIf
+
+   Global $g_iWindowOffsetLeft = $pos[0]
+   Global $g_iWindowOffsetTop = $pos[1]
+   Global $g_iWindowWidth = $pos[2]
+   Global $g_iWindowHeight = $pos[3]
+
    Log_(@ScriptName & ' is ready. Open Navali Prophecies dialog and press Ctrl+K to start or Ctrl+L to pause!')
 
    Local $aInventory[0]
@@ -132,11 +143,14 @@ Func Main()
       EndIf
 
       InitInventorySettings()
-      If CheckInventoryClosed() Then
-      ;If Not IsStorageVisible() Then
-         Log_('Opening inventory...')
-         Send('{i}')
-      EndIf
+      ;Do
+         $bIClosed = CheckInventoryClosed()
+         If $bIClosed Then
+         ;If Not IsStorageVisible() Then
+            Log_('Opening inventory...')
+            Send('{i}')
+         EndIf
+      ;Until Not $bIClosed
 
       If Not UBound($aInventory) Or $g_isRestarted Then
          $g_isRestarted = False
@@ -144,7 +158,7 @@ Func Main()
 
          ; Move cursor out of inventory
          Log_('Move cursor out of inventory (3)')
-         MouseMove(Random(650, 1200, 1), Random(400, 800, 1))
+         MoveOutCursor()
 
          $aInventory = StorageScan($COLOR_EMPTY, $COLOR_EMPTY_SHADE)
       EndIf
@@ -162,7 +176,7 @@ Func Main()
 
             ; Move cursor out of Stash
             Log_('Move cursor out of Stash')
-            MouseMove(Random(650, 1200, 1), Random(400, 800, 1))
+            MoveOutCursor()
 
             InitStashSettings()
             If Not IsStorageVisible() Then
@@ -195,7 +209,7 @@ Func Main()
 
          ; Move cursor out of inventory
          Log_('Move cursor out of inventory (4)')
-         MouseMove(Random(650, 1200, 1), Random(400, 800, 1))
+         MoveOutCursor()
 
          If Not CheckInventoryClosed() Then
             Send('{ESC}')
@@ -221,7 +235,7 @@ Func Main()
 
       If CheckProphecyExist() Then
          PressSeal()
-         Sleep(100)
+         Sleep(200)
 
          If CheckEmptyWalletDialog() Then
             Stop('Not enough Silver coins to Seal.')
@@ -242,7 +256,7 @@ Func Main()
             ContinueLoop
          EndIf
 
-         Sleep(100)
+         Sleep(200)
          $sItemInfo = GetItemInfo()
          $aInfo = SplitProphecyInfo($sItemInfo)
          If @error Then
@@ -276,7 +290,7 @@ Func Main()
             MouseClick($MOUSE_CLICK_LEFT)
             Sleep(50)
             MouseClick($MOUSE_CLICK_LEFT, Random(1230, 1244, 1), MouseGetPos(1) + Random(0, 10, 1))
-            Sleep(120)
+            Sleep(200)
 
             ; confirm dialog
             If PixelGetColor(1170, 570) = 0x612f07 Then
@@ -399,12 +413,14 @@ Func CheckConfirmDialog()
 EndFunc
 
 Func PressConfirmDialog()
-   $x = Random(777, 896, 1)
-   $y = Random(542, 568, 1)
-   $speed = Random(10, 20, 1)
+   ;$x = Random(777, 896, 1)
+   ;$y = Random(542, 568, 1)
+   ;$speed = Random(10, 20, 1)
 
    Log_('PressConfirmDialog')
-   MouseClick($MOUSE_CLICK_LEFT, $x, $y, 1, $speed)
+   ;MouseClick($MOUSE_CLICK_LEFT, $x, $y, 1, $speed)
+   Send('{ENTER}')
+   Sleep(100)
 EndFunc
 
 Func CheckInventoryClosed()
@@ -529,7 +545,7 @@ Func StorageCtrlClickItem(ByRef $aInventory)
       EndIf
 
       StorageClickItem($aInventory[$i][0], $aInventory[$i][1])
-      Sleep(150)
+      Sleep(200)
 
       If Not CellCheckIsEmpty($aInventory[$i][0], $aInventory[$i][1]) Then
          Stop('Looks like stash is full')
@@ -547,4 +563,8 @@ EndFunc
 
 Func GetCsvDeletedPath()
    Return @ScriptDir & '\ProphDeleted\' & StringFormat('%s-%s-%s_%s-%s.tsv', @YEAR, @MON, @MDAY, @HOUR, @MIN)
+EndFunc
+
+Func MoveOutCursor()
+   MouseMove($g_iWindowWidth / 2 + $g_iWindowOffsetLeft, $g_iWindowHeight / 2 + $g_iWindowOffsetTop)
 EndFunc

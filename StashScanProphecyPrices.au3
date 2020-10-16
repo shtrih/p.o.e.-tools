@@ -188,7 +188,7 @@ Func Main()
                      $name, _
                      $text, _
                      $x & 'x' & $iSnakeY, _
-                     Round($fChaos, 1), _
+                     $fActualPrice, _ ; Round($fChaos, 1), _
                      $fEx, _
                      $sHash _
                   ]]
