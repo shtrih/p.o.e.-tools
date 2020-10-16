@@ -1,3 +1,6 @@
+#cs
+   PixelGetColor and other Pixel* functions are very slow for good flask monitoring. Try FastFind or something...
+#ce
 #pragma compile(Console, True)
 #pragma compile(x64, true)
 #pragma compile(Icon, "flask.ico")
