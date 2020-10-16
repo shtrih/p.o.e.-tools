@@ -229,11 +229,13 @@ Func Main()
                $sError = $aErrorDesc[@error]
                LogE(StringFormat('Error $aLatestResult concat: %s', $sError))
             EndIf
-
-            $aLatestResult = null
          EndIf
 
          CsvAppend($aResult, $aHeader, $sCsvPath, $g_hCsvHwnd)
+
+         $aLatestPos[0] = 0
+         $aLatestPos[1] = 0
+         $aLatestResult = null
       EndIf
 
       Stop()
